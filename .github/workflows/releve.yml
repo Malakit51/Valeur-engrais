@@ -1,0 +1,34 @@
+name: Relevé des cours des engrais
+on:
+  schedule:
+    - cron: "17 5 * * 1"      # chaque lundi, 6 h 17 en hiver (heure de Paris)
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: releve
+  cancel-in-progress: false
+jobs:
+  releve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install openpyxl
+      - name: L'étiquette des alertes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create alerte --color e7b75e --description "Un cours d'engrais à surveiller" 2>/dev/null || true
+      - name: Relevé
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python outils/releve.py
+      - name: Enregistrer
+        run: |
+          git config user.name "Relevé des cours"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add donnees
+          git diff --cached --quiet || (git commit -m "Cours des engrais : relevé du $(date +%d/%m/%Y)" && git push)
