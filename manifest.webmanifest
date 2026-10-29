@@ -1,10 +1,10 @@
 {
-  "id": "valeur-engrais-2",
+  "id": "valeur-engrais-3",
   "name": "Valeur des engrais",
   "short_name": "Engrais",
   "description": "La valeur réelle des engrais, des organiques et de la paille exportée, d'après le prix de l'unité de tes engrais de référence.",
   "lang": "fr",
-  "start_url": "./",
+  "start_url": "./?appli=3",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

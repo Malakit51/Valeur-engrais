@@ -6,7 +6,7 @@
 <title>Valeur des engrais</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#1f6b52">
-<link rel="manifest" href="manifest.webmanifest?v=2">
+<link rel="manifest" href="manifest.webmanifest?v=3">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <!--
@@ -259,6 +259,8 @@ const NOMS_LONGS = {N: "Azote", P2O5: "Phosphore", K2O: "Potasse", MgO: "Magnés
 const COULEURS = {N: "var(--n)", P2O5: "var(--p)", K2O: "var(--k)", MgO: "var(--mg)", SO3: "var(--s)"};
 const CLE = "tourniere-valeur-engrais-v1";
 const VUES = ["prix", "mineraux", "organiques", "paille"];
+// la version de l'appli installable (manifeste valeur-engrais-3) : montrée dans le menu ⋯
+const VERSION_APPLI = "3 · 29/10/2026";
 
 // Types d'organiques (module Engrais de Tournière, d'après le COMIFER) : part d'azote efficace au printemps et à
 // l'automne ; P₂O₅ 80 %, K₂O 100 % pour tous
@@ -904,7 +906,8 @@ function ficheMenu() {
     <button class="btn" data-action="importer">Ouvrir un fichier<small>&nbsp;· enregistré par cette page</small></button>
     <button class="btn" data-action="methode">Comment c'est calculé</button>
     <button class="btn danger" data-action="exemples" id="b-exemples">Revenir aux exemples</button></div>
-    <p class="aide-champ">Tes engrais restent dans ce navigateur, sur cet appareil. Pour les retrouver ailleurs, enregistre-les dans un fichier.</p>`;
+    <p class="aide-champ">Tes engrais restent dans ce navigateur, sur cet appareil. Pour les retrouver ailleurs, enregistre-les dans un fichier.</p>
+    <p class="aide-champ">Version ${VERSION_APPLI}</p>`;
 }
 
 function ficheMethode() {
