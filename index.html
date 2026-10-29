@@ -229,6 +229,15 @@ main { max-width: 980px; margin: 0 auto; padding-block: 18px 48px;
 .bulle b { font-family: var(--f-chiffre); }
 .groupe-cours { margin: 18px 0 8px; font: 700 1.2rem var(--f-titre); }
 .courbe-vide { padding: 18px 12px; border: 1px dashed var(--trait); border-radius: 10px; color: var(--doux); font-size: .88rem; text-align: center; }
+.carte-alertes { margin-top: 18px; }
+.etapes { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: .9rem; }
+.etapes code { font-family: var(--f-chiffre); background: var(--surface-2); border: 1px solid var(--trait); border-radius: 4px; padding: 0 4px; }
+.cle-notifs { width: 100%; min-height: 90px; font: .75rem var(--f-chiffre); border: 1.5px solid var(--trait-fort); border-radius: 10px; padding: 8px; background: var(--surface-2); color: var(--encre); word-break: break-all; }
+a.btn { text-decoration: none; color: var(--encre); }
+.alerte-marche { background: var(--att-f); border-color: var(--att); }
+.alerte-marche svg { color: var(--att); }
+.onglets button { position: relative; }
+.onglets button.nouveau::after { content: ""; position: absolute; top: 4px; right: calc(50% - 18px); width: 9px; height: 9px; border-radius: 50%; background: var(--cher); border: 2px solid var(--surface); }
 .grille-cours { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .reglage-paille { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .puce { min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); font-weight: 700; font-size: .9rem; }
@@ -287,7 +296,7 @@ const COULEURS = {N: "var(--n)", P2O5: "var(--p)", K2O: "var(--k)", MgO: "var(--
 const CLE = "tourniere-valeur-engrais-v1";
 const VUES = ["prix", "mineraux", "organiques", "paille", "marche"];
 // la version de l'appli installable (manifeste valeur-engrais-3) : montrée dans le menu ⋯
-const VERSION_APPLI = "6 · 29/10/2026";
+const VERSION_APPLI = "7 · 29/10/2026";
 
 // Types d'organiques (module Engrais de Tournière, d'après le COMIFER) : part d'azote efficace au printemps et à
 // l'automne ; P₂O₅ 80 %, K₂O 100 % pour tous
@@ -720,6 +729,7 @@ async function chargerMarche() {
     marche = {etat: "erreur"};
   }
   if (vue === "marche") dessiner();
+  pointOnglet();
 }
 
 function couleurCours(s) { return s.cle === "gaz" ? "var(--doux)" : COULEURS[s.element] || "var(--accent)"; }
@@ -762,6 +772,85 @@ function carteCours(s) {
   </article>`;
 }
 
+// ---------------------------------------------------------------- alertes sur le téléphone (Web Push)
+// L'appli fabrique une paire de clés (VAPID) et s'abonne aux notifications de Chrome ; la « clé d'abonnement » (cet
+// abonnement et la clé privée, en un seul texte) se colle une fois dans le secret NOTIFICATIONS_ENGRAIS du dépôt :
+// le relevé du lundi (GitHub Actions) s'en sert pour envoyer les alertes. Elle reste sur ce téléphone et dans ce
+// secret : jamais dans le dépôt public.
+const CLE_NOTIFS = CLE + "-notifications", CLE_VUE = CLE + "-alerte-vue";
+const SECRETS = "https://github.com/Malakit51/Valeur-engrais/settings/secrets/actions/new";
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const pushPossible = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && window.self === window.top
+  && (location.protocol === "https:" || location.hostname === "localhost");
+
+async function activerAlertes() {
+  try {
+    if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") {
+      message("Notifications refusées : autorise-les pour cette appli dans les réglages de Chrome.");
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const paire = await crypto.subtle.generateKey({name: "ECDSA", namedCurve: "P-256"}, true, ["sign", "verify"]);
+    const publique = await crypto.subtle.exportKey("raw", paire.publicKey), privee = await crypto.subtle.exportKey("jwk", paire.privateKey);
+    const ancien = await reg.pushManager.getSubscription();
+    if (ancien) await ancien.unsubscribe();
+    const abonnement = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: new Uint8Array(publique)});
+    ecrire(CLE_NOTIFS, b64u(new TextEncoder().encode(JSON.stringify({s: abonnement.toJSON(), k: privee.d}))));
+    dessiner();
+    message("Alertes activées : copie la clé, puis colle-la dans GitHub.");
+  } catch (e) {
+    message("L'activation n'a pas marché : " + (e && e.message || e));
+  }
+}
+
+async function desactiverAlertes() {
+  try {
+    const reg = await navigator.serviceWorker.ready, ab = await reg.pushManager.getSubscription();
+    if (ab) await ab.unsubscribe();
+  } catch (e) { /* déjà désabonné */ }
+  try { localStorage.removeItem(CLE_NOTIFS); } catch (e) { /* rien de gardé */ }
+  dessiner();
+  message("Alertes désactivées sur ce téléphone.");
+}
+
+async function copierCle() {
+  const cle = lire(CLE_NOTIFS) || "";
+  try { await navigator.clipboard.writeText(cle); message("Clé copiée : colle-la dans GitHub."); }
+  catch (e) { const z = $("#cle-notifs"); if (z) { z.hidden = false; z.focus(); z.select(); } message("Copie impossible ici : sélectionne la clé et copie-la."); }
+}
+
+function carteAlertes() {
+  const cle = lire(CLE_NOTIFS);
+  let corps;
+  if (!pushPossible()) corps = `<p class="aide-champ">Les alertes s'activent dans l'appli installée sur ton téléphone (malakit51.github.io/Valeur-engrais).</p>`;
+  else if (!cle) corps = `<p class="aide-champ">Une notification sur ce téléphone quand un cours passe dans le quart le plus bas de ses 3 ans, ou baisse fortement : 5 % en 4 semaines pour une cotation française, 8 % en un mois pour un cours mondial.</p>
+      <button class="btn plein" data-action="activer-alertes">Recevoir les alertes sur ce téléphone</button>`;
+  else corps = `<p class="aide-champ"><b>Activées sur ce téléphone.</b> Pour que le relevé du lundi puisse t'écrire, une seule fois :</p>
+      <ol class="etapes">
+        <li><button class="btn petit" data-action="copier-cle">Copier la clé d'abonnement</button></li>
+        <li><a class="btn petit" href="${SECRETS}" target="_blank" rel="noopener">Ouvrir les réglages secrets du dépôt</a></li>
+        <li>Name : <code>NOTIFICATIONS_ENGRAIS</code> ; Secret : colle la clé ; puis <b>Add secret</b>.</li>
+      </ol>
+      <textarea id="cle-notifs" class="cle-notifs" readonly hidden>${echap(cle)}</textarea>
+      <p class="aide-champ">La clé ne vaut que pour ce téléphone. Elle reste ici et dans le secret, jamais dans le dépôt public.</p>
+      <button class="btn danger petit" data-action="desactiver-alertes">Désactiver sur ce téléphone</button>`;
+  return `<section class="cours carte-alertes"><h2 class="groupe-cours" style="margin:0">Alertes sur ce téléphone</h2>${corps}</section>`;
+}
+
+// la dernière alerte du relevé, en bandeau tant qu'elle n'est pas « vue » ; un point sur l'onglet Marché
+function alerteNonVue() {
+  const a = marche.etat === "ok" && (marche.d.alertes || []).slice(-1)[0];
+  return a && lire(CLE_VUE) !== a.date + a.cle ? a : null;
+}
+function bandeauAlerte() {
+  const a = alerteNonVue();
+  if (!a) return "";
+  return `<div class="installer alerte-marche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></svg>
+    <span><b>Alerte du ${new Date(a.date).toLocaleDateString("fr-FR")}</b><br>${echap(a.texte)}</span>
+    <button class="btn petit" data-action="alerte-vue">Vu</button></div>`;
+}
+function pointOnglet() { const o = $("#o-marche"); if (o) o.classList.toggle("nouveau", !!alerteNonVue()); }
+
 function vueMarche() {
   if (marche.etat === "rien") chargerMarche();
   const tete = `<div class="entete-vue"><div class="titre"><h1>Marché</h1>
@@ -773,8 +862,8 @@ function vueMarche() {
     const cartes = cles.filter(k => par[k] && par[k].points.length).map(k => carteCours(par[k])).join("");
     return cartes ? `<h2 class="groupe-cours">${titre}</h2><div class="grille-cours">${cartes}</div>` : "";
   }).join("");
-  return tete + groupes + `
-    <p class="note">Relevé le ${new Date(d.maj).toLocaleDateString("fr-FR")}, chaque lundi. Cotations françaises : <a href="https://www.web-agri.fr/marches-agricoles/engrais" target="_blank" rel="noopener">Web-agri</a>, cotations du jour, relevées une fois par semaine (leur historique se construit ici depuis le 29/10/2026). Cours mondiaux : Banque mondiale (Pink Sheet, CC BY 4.0), en euros au taux mensuel de la BCE. Prix payés en France : INSEE, indice IPAMPA (Licence Ouverte). Ce sont des prix de gros : ils donnent la tendance et le bon moment, ton prix livré suit avec un décalage. Une alerte arrive par GitHub quand un cours passe dans le quart le plus bas de ses 3 ans, ou baisse fortement (5 % en 4 semaines pour une cotation française, 8 % en un mois pour un cours mondial).</p>`;
+  return tete + bandeauAlerte() + groupes + carteAlertes() + `
+    <p class="note">Relevé le ${new Date(d.maj).toLocaleDateString("fr-FR")}, chaque lundi. Cotations françaises : <a href="https://www.web-agri.fr/marches-agricoles/engrais" target="_blank" rel="noopener">Web-agri</a>, cotations du jour, relevées une fois par semaine (leur historique se construit ici depuis le 29/10/2026). Cours mondiaux : Banque mondiale (Pink Sheet, CC BY 4.0), en euros au taux mensuel de la BCE. Prix payés en France : INSEE, indice IPAMPA (Licence Ouverte). Ce sont des prix de gros : ils donnent la tendance et le bon moment, ton prix livré suit avec un décalage.</p>`;
 }
 
 // le doigt (ou la souris) sur une courbe : le mois et le cours
@@ -1064,6 +1153,7 @@ function ficheMenu() {
   return `<div class="menu">
     <button class="btn" data-action="exporter">Enregistrer dans un fichier<small>&nbsp;· pour les garder ou les passer à quelqu'un</small></button>
     <button class="btn" data-action="importer">Ouvrir un fichier<small>&nbsp;· enregistré par cette page</small></button>
+    <button class="btn" data-action="aller-alertes">Alertes sur ce téléphone<small>&nbsp;· notifications des cours</small></button>
     <button class="btn" data-action="methode">Comment c'est calculé</button>
     <button class="btn danger" data-action="exemples" id="b-exemples">Revenir aux exemples</button></div>
     <p class="aide-champ">Tes engrais restent dans ce navigateur, sur cet appareil. Pour les retrouver ailleurs, enregistre-les dans un fichier.</p>
@@ -1183,6 +1273,18 @@ document.addEventListener("click", ev => {
   if (t.id === "b-menu") { ouvrir("menu"); return; }
   const a = t.dataset.action;
   if (a === "installer") installer();
+  else if (a === "aller-alertes") {
+    fermer();
+    vue = "marche";
+    history.replaceState(null, "", "#marche");
+    dessiner();
+    const c = () => { const x = $(".carte-alertes"); if (x) x.scrollIntoView({block: "start"}); else setTimeout(c, 300); };
+    c();
+  }
+  else if (a === "activer-alertes") activerAlertes();
+  else if (a === "desactiver-alertes") desactiverAlertes();
+  else if (a === "copier-cle") copierCle();
+  else if (a === "alerte-vue") { const x = alerteNonVue(); if (x) ecrire(CLE_VUE, x.date + x.cle); dessiner(); pointOnglet(); }
   else if (a === "recharger-marche") { chargerMarche(); dessiner(); }
   else if (a === "exporter") exporter();
   else if (a === "importer") $("#b-import").click();
@@ -1281,6 +1383,7 @@ window.addEventListener("hashchange", () => {
 });
 
 dessiner();
+if (pushPossible() && marche.etat === "rien") chargerMarche();
 
 // l'appli installée (GitHub Pages) : son service worker garde la page pour l'ouvrir sans réseau ; jamais dans claude.ai,
 // où la page tourne dans un cadre
