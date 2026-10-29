@@ -204,6 +204,9 @@ main { max-width: 980px; margin: 0 auto; padding-block: 18px 48px;
 .champ .seg { min-height: 46px; }
 .champ .seg button { min-height: 38px; }
 .pied-fiche { display: grid; }
+.installer { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-bottom: 16px; padding: 12px 14px;
+  border-radius: var(--rayon); background: var(--accent-f); border: 1.5px solid var(--accent); color: var(--encre); font-size: .92rem; }
+.installer svg { width: 26px; height: 26px; color: var(--accent); }
 .reglage-paille { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .puce { min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); font-weight: 700; font-size: .9rem; }
 .puce[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-encre); }
@@ -260,7 +263,7 @@ const COULEURS = {N: "var(--n)", P2O5: "var(--p)", K2O: "var(--k)", MgO: "var(--
 const CLE = "tourniere-valeur-engrais-v1";
 const VUES = ["prix", "mineraux", "organiques", "paille"];
 // la version de l'appli installable (manifeste valeur-engrais-3) : montrée dans le menu ⋯
-const VERSION_APPLI = "3 · 29/10/2026";
+const VERSION_APPLI = "4 · 29/10/2026";
 
 // Types d'organiques (module Engrais de Tournière, d'après le COMIFER) : part d'azote efficace au printemps et à
 // l'automne ; P₂O₅ 80 %, K₂O 100 % pour tous
@@ -577,11 +580,34 @@ function champsTeneurs(t, u, prefixe = "t") {
 let vue = VUES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "prix";
 let tri = lire(CLE + "-tri") === "nom" ? "nom" : "affaire";
 
+// l'installation proposée par la page elle-même (29/10/2026) : le menu ⋮ de Chrome disait l'appli « déjà installée »
+// parce que d'autres applis (Jalon, Carnet de mise) sont installées à la même adresse (malakit51.github.io) ; la
+// fenêtre d'installation que la page déclenche ne fait pas ce test. Chrome ne la permet que s'il juge l'appli
+// installable et pas encore installée (événement beforeinstallprompt).
+let invitation = null;
+window.addEventListener("beforeinstallprompt", ev => { ev.preventDefault(); invitation = ev; dessiner(); });
+window.addEventListener("appinstalled", () => { invitation = null; dessiner(); message("Appli installée : elle est sur ton écran d'accueil."); });
+function bandeauInstall() {
+  if (!invitation) return "";
+  return `<div class="installer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+    <span><b>Installer sur ton téléphone</b><br>Une icône sur l'écran d'accueil, en plein écran, même sans réseau.</span>
+    <button class="btn plein petit" data-action="installer">Installer</button></div>`;
+}
+async function installer() {
+  if (!invitation) { message("Chrome ne propose pas l'installation ici."); return; }
+  const ev = invitation;
+  invitation = null;
+  await ev.prompt();
+  const choix = await ev.userChoice.catch(() => null);
+  if (!choix || choix.outcome !== "accepted") message("Installation annulée.");
+  dessiner();
+}
+
 function dessiner() {
   document.querySelectorAll("#onglets [data-vue]").forEach(b => b.setAttribute("aria-selected", b.dataset.vue === vue ? "true" : "false"));
   $("#sous-titre").textContent = "Valeur réelle, pas valeur vénale";
   const pe = prixUnite();
-  $("#vue").innerHTML = vue === "prix" ? vuePrix(pe) : vue === "mineraux" ? vueMineraux(pe) : vue === "organiques" ? vueOrganiques(pe) : vuePaille(pe);
+  $("#vue").innerHTML = bandeauInstall() + (vue === "prix" ? vuePrix(pe) : vue === "mineraux" ? vueMineraux(pe) : vue === "organiques" ? vueOrganiques(pe) : vuePaille(pe));
 }
 
 function vuePrix(pe) {
@@ -1022,7 +1048,8 @@ document.addEventListener("click", ev => {
   }
   if (t.id === "b-menu") { ouvrir("menu"); return; }
   const a = t.dataset.action;
-  if (a === "exporter") exporter();
+  if (a === "installer") installer();
+  else if (a === "exporter") exporter();
   else if (a === "importer") $("#b-import").click();
   else if (a === "methode") { fiche = {genre: "methode"}; dessinerFiche(); }
   else if (a === "exemples") exemples(t);
