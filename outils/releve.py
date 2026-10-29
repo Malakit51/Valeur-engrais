@@ -8,11 +8,16 @@
   cotations est réservé aux abonnés : il se construit ici semaine après semaine, à partir du 29/10/2026.
 
 Écrit donnees/cours.json (lu par l'onglet Marché de l'appli) et, quand un cours passe dans le quart le plus bas de ses
-trois dernières années ou baisse fortement en un mois, ouvre une « issue » GitHub : la notification arrive sur le
-téléphone (appli GitHub) ou par courriel. donnees/alertes.json garde ce qui a déjà été signalé.
+trois dernières années ou baisse fortement, envoie une notification à l'appli installée sur le téléphone (Web Push ;
+le secret NOTIFICATIONS_ENGRAIS du dépôt, copié depuis l'appli, porte l'abonnement du téléphone et sa clé). Sans ce
+secret, ou si l'envoi échoue, l'alerte devient une « issue » GitHub. donnees/alertes.json garde ce qui a été signalé ;
+les dernières alertes sont aussi dans cours.json, pour le bandeau de l'onglet Marché.
+« python outils/releve.py essai » envoie seulement une notification d'essai.
 """
+import base64
 import csv
 import datetime
+import sys
 import html
 import io
 import json
@@ -153,7 +158,27 @@ def signal(s):
     return g
 
 
-def alerter(series, deja, silencieux=False):
+def notifier(titre, texte):
+    """Une notification à l'appli du téléphone ; False sans abonnement ou si l'envoi échoue."""
+    cle = os.environ.get("NOTIFICATIONS_ENGRAIS", "").strip()
+    if not cle:
+        print("pas d'abonnement (secret NOTIFICATIONS_ENGRAIS vide)")
+        return False
+    from py_vapid import VapidException
+    from pywebpush import WebPushException, webpush
+    try:
+        a = json.loads(base64.urlsafe_b64decode(cle + "=" * (-len(cle) % 4)))
+        webpush(subscription_info=a["s"], data=json.dumps({"titre": titre, "texte": texte, "url": "./#marche"}),
+                vapid_private_key=a["k"], vapid_claims={"sub": "https://malakit51.github.io"},
+                ttl=3 * 86400)
+        print("notification envoyée :", titre)
+        return True
+    except (WebPushException, VapidException, ValueError, KeyError) as e:
+        print("notification refusée :", e)
+        return False
+
+
+def alerter(series, deja, recentes, silencieux=False):
     """Une issue GitHub par nouveauté : un cours qui entre dans le quart bas, ou une forte baisse en un mois."""
     nouvelles = []
     for s in series:
@@ -180,13 +205,18 @@ def alerter(series, deja, silencieux=False):
                     f"le quart le plus bas sous {g['q25']:.0f}.\n\n" if g.get("etat") else "")
                  + f"Source : {s['source']} ({s['lien']}). C'est un prix de gros : il annonce la tendance, ton prix "
                  f"livré suit avec un décalage.\n\nLes courbes : {APPLI}\n")
-        if os.environ.get("GITHUB_ACTIONS") and not silencieux:
+        court = f"{s['nom']} ({s['lieu']}) : {g['dernier']:.0f} {s['unite']}, " + " et ".join(raisons) + "."
+        if os.environ.get("GITHUB_ACTIONS") and not silencieux and not notifier(f"{s['nom']} : à regarder", court):
             subprocess.run(["gh", "issue", "create", "--title", titre, "--body", corps, "--label", "alerte"], check=False)
         print("ALERTE" + (" (premier relevé : notée, pas envoyée)" if silencieux else ""), titre)
         deja.append(cle)
+        recentes.append({"date": datetime.date.today().isoformat(), "cle": s["cle"], "texte": court})
 
 
 def main():
+    if sys.argv[1:] == ["essai"]:
+        ok = notifier("Essai : les alertes arrivent", "Ton téléphone recevra ici les alertes sur les cours des engrais.")
+        sys.exit(0 if ok else 1)
     taux = taux_bce()
     anciennes = {}
     if os.path.exists("donnees/cours.json"):
@@ -200,9 +230,10 @@ def main():
     chemin_alertes = "donnees/alertes.json"
     premier = not os.path.exists(chemin_alertes)          # le premier relevé note l'état du moment sans alerter
     deja = [] if premier else json.load(open(chemin_alertes))
-    alerter(series, deja, silencieux=premier)
+    recentes = json.load(open("donnees/cours.json")).get("alertes", []) if os.path.exists("donnees/cours.json") else []
+    alerter(series, deja, recentes, silencieux=premier)
     json.dump(deja[-200:], open(chemin_alertes, "w"), ensure_ascii=False, indent=1)
-    json.dump({"maj": datetime.date.today().isoformat(), "fenetre_mois": FENETRE, "series": series},
+    json.dump({"maj": datetime.date.today().isoformat(), "fenetre_mois": FENETRE, "alertes": recentes[-10:], "series": series},
               open("donnees/cours.json", "w"), ensure_ascii=False, separators=(",", ":"))
 
 
