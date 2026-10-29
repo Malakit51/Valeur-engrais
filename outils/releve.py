@@ -34,10 +34,10 @@ MWH_PAR_MMBTU = 0.293071
 
 # (colonne de la Pink Sheet, clé, nom, élément, teneur % pour le prix de l'unité, lieu)
 BANQUE_MONDIALE = [
-    ("Urea", "uree", "Urée", "N", 46, "Moyen-Orient, FOB"),
-    ("TSP", "tsp", "TSP (super triple)", "P2O5", 46, "golfe des États-Unis, import"),
-    ("Potassium chloride", "kcl", "Chlorure de potasse", "K2O", 60, "Brésil, CFR"),
-    ("DAP", "dap", "DAP (18-46)", "P2O5", None, "golfe des États-Unis, FOB"),
+    ("Urea", "uree", "Urée, cours mondial", "N", 46, "Moyen-Orient, FOB"),
+    ("TSP", "tsp", "Super triple, cours mondial", "P2O5", 46, "golfe des États-Unis, import"),
+    ("Potassium chloride", "kcl", "Chlorure, cours mondial", "K2O", 60, "Brésil, CFR"),
+    ("DAP", "dap", "DAP, cours mondial", "P2O5", None, "golfe des États-Unis, FOB"),
     ("Natural gas, Europe", "gaz", "Gaz naturel Europe", None, None, "TTF"),
 ]
 # cotations françaises de Web-agri : (nom sur la page, clé, nom, élément, teneur %)

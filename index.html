@@ -227,6 +227,8 @@ main { max-width: 980px; margin: 0 auto; padding-block: 18px 48px;
 .courbe .viseur { stroke: var(--doux); stroke-width: 1; stroke-dasharray: 3 3; }
 .bulle { position: absolute; top: 0; pointer-events: none; background: var(--encre); color: var(--surface); border-radius: 8px; padding: 4px 8px; font-size: .8rem; white-space: nowrap; transform: translateX(-50%); }
 .bulle b { font-family: var(--f-chiffre); }
+.groupe-cours { margin: 18px 0 8px; font: 700 1.2rem var(--f-titre); }
+.courbe-vide { padding: 18px 12px; border: 1px dashed var(--trait); border-radius: 10px; color: var(--doux); font-size: .88rem; text-align: center; }
 .grille-cours { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .reglage-paille { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .puce { min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); font-weight: 700; font-size: .9rem; }
@@ -285,7 +287,7 @@ const COULEURS = {N: "var(--n)", P2O5: "var(--p)", K2O: "var(--k)", MgO: "var(--
 const CLE = "tourniere-valeur-engrais-v1";
 const VUES = ["prix", "mineraux", "organiques", "paille", "marche"];
 // la version de l'appli installable (manifeste valeur-engrais-3) : montrée dans le menu ⋯
-const VERSION_APPLI = "5 · 29/10/2026";
+const VERSION_APPLI = "6 · 29/10/2026";
 
 // Types d'organiques (module Engrais de Tournière, d'après le COMIFER) : part d'azote efficace au printemps et à
 // l'automne ; P₂O₅ 80 %, K₂O 100 % pour tous
@@ -696,10 +698,17 @@ function vueOrganiques(pe) {
 // ---------------------------------------------------------------- onglet Marché
 // donnees/cours.json, écrit chaque lundi par le relevé (GitHub Actions, outils/releve.py) : sources ouvertes, mensuelles
 let marche = {etat: "rien"};
-const ORDRE_COURS = ["uree", "ipampa_n", "tsp", "kcl", "dap", "gaz"];
+// rangés par élément : les cotations françaises d'abord (Web-agri, chaque lundi), puis les cours mondiaux et l'indice
+const GROUPES_COURS = [
+  ["Azote", ["fr_an33", "fr_an27", "fr_sol", "fr_uree", "uree", "ipampa_n"]],
+  ["Phosphore", ["fr_tsp", "tsp", "fr_dap", "dap"]],
+  ["Potasse", ["fr_mop", "kcl"]],
+  ["Énergie", ["gaz"]],
+];
 const ETATS_COURS = {bas: ["bon", "quart le plus bas sur 3 ans"], moyen: ["egal", "dans la moyenne sur 3 ans"], haut: ["cher", "quart le plus haut sur 3 ans"]};
 const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
-const moisTxt = m => `${MOIS[+m.slice(5) - 1]} ${m.slice(0, 4)}`;
+// « 2026-09 » (un mois) ou « 2026-10-29 » (une cotation du jour)
+const moisTxt = m => m.length > 7 ? `${+m.slice(8)} ${MOIS[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}` : `${MOIS[+m.slice(5) - 1]} ${m.slice(0, 4)}`;
 
 async function chargerMarche() {
   marche = {etat: "charge"};
@@ -716,19 +725,21 @@ async function chargerMarche() {
 function couleurCours(s) { return s.cle === "gaz" ? "var(--doux)" : COULEURS[s.element] || "var(--accent)"; }
 
 // la courbe des 3 dernières années : bande du milieu (quart bas → quart haut), grille légère, point final marqué
+const fenetreCours = s => s.frequence === "hebdomadaire" ? 156 : (marche.d.fenetre_mois || 36);
 function courbe(s) {
-  const pts = s.points.slice(-(marche.d.fenetre_mois || 36)), g = s.signal;
+  const pts = s.points.slice(-fenetreCours(s)), g = s.signal;
+  if (pts.length < 2) return `<div class="courbe-vide">Première cotation relevée le ${moisTxt(pts[0][0])} : la courbe se dessine au fil des lundis.</div>`;
   const L = 340, H = 130, g0 = 34, d0 = 8, h0 = 8, b0 = 20;
   const vals = pts.map(p => p[1]), mn = Math.min(...vals), mx = Math.max(...vals), marge = (mx - mn) * 0.08 || 1;
   const y0 = mn - marge, y1 = mx + marge;
   const X = i => g0 + i * (L - g0 - d0) / Math.max(1, pts.length - 1), Y = v => h0 + (y1 - v) * (H - h0 - b0) / (y1 - y0);
   const ticks = [mn, (mn + mx) / 2, mx];
-  const annees = pts.map((p, i) => [p[0], i]).filter(([m]) => m.endsWith("-01"));
+  const annees = pts.map((p, i) => [p[0], i]).filter(([m], i) => i > 0 && m.slice(0, 4) !== pts[i - 1][0].slice(0, 4));
   const chemin = pts.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
   const dernier = pts.length - 1;
   return `<div class="courbe" data-courbe="${s.cle}" style="--c:${couleurCours(s)}">
     <svg viewBox="0 0 ${L} ${H}" role="img" aria-label="${echap(s.nom)} sur 3 ans, de ${f0.format(mn)} à ${f0.format(mx)} ${echap(s.unite)}">
-      ${g ? `<rect class="bande" x="${g0}" y="${Y(g.q75).toFixed(1)}" width="${L - g0 - d0}" height="${Math.max(1, Y(g.q25) - Y(g.q75)).toFixed(1)}"/>` : ""}
+      ${g && g.q25 != null ? `<rect class="bande" x="${g0}" y="${Y(g.q75).toFixed(1)}" width="${L - g0 - d0}" height="${Math.max(1, Y(g.q25) - Y(g.q75)).toFixed(1)}"/>` : ""}
       ${ticks.map(t => `<line class="grille" x1="${g0}" x2="${L - d0}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/><text class="axe" x="${g0 - 4}" y="${(Y(t) + 4).toFixed(1)}" text-anchor="end">${f0.format(t)}</text>`).join("")}
       ${annees.map(([m, i]) => `<text class="axe" x="${X(i).toFixed(1)}" y="${H - 4}" text-anchor="middle">${m.slice(0, 4)}</text>`).join("")}
       <path class="ligne" d="${chemin}"/>
@@ -741,25 +752,29 @@ function carteCours(s) {
   const g = s.signal, dernier = s.points[s.points.length - 1];
   if (!dernier) return "";
   const parU = s.teneur && s.unite === "€/t" ? `soit ${f2.format(dernier[1] / (s.teneur * 10))} €/u ${NOMS[s.element]}` : "";
-  const [cls, txt] = g ? ETATS_COURS[g.etat] : ["egal", ""];
+  const [cls, txt] = g && g.etat ? ETATS_COURS[g.etat] : ["egal", g ? `historique en cours : ${g.releves} relevé${g.releves > 1 ? "s" : ""}` : ""];
+  const varTxt = (v, quand) => v == null ? "" : `<span>${v >= 0 ? "+" : "−"}${f1.format(Math.abs(v))} % ${quand}</span>`;
   return `<article class="cours">
     <div class="cours-tete"><div><h2>${echap(s.nom)}</h2><span class="src">${echap(s.lieu)} · ${echap(s.source)}</span></div>
-      <div class="cours-val"><b>${f0.format(dernier[1])}</b><span class="u">${echap(s.unite.replace(" (100 en 2020)", ""))}</span><span>${moisTxt(dernier[0])}</span>${parU ? `<span>${parU}</span>` : ""}</div></div>
+      <div class="cours-val"><b>${s.unite === "€/t" ? f1.format(dernier[1]) : f0.format(dernier[1])}</b><span class="u">${echap(s.unite.replace(" (100 en 2020)", ""))}</span><span>${moisTxt(dernier[0])}</span>${parU ? `<span>${parU}</span>` : ""}</div></div>
     ${courbe(s)}
-    <div class="cours-bas">${g ? `<span class="pastille ${cls}">${txt}</span><span>${g.var1 >= 0 ? "+" : "−"}${f1.format(Math.abs(g.var1))} % sur un mois</span><span>${g.var12 >= 0 ? "+" : "−"}${f1.format(Math.abs(g.var12))} % sur un an</span>` : ""}</div>
+    <div class="cours-bas">${txt ? `<span class="pastille ${cls}">${txt}</span>` : ""}${g ? varTxt(g.releves > 1 ? g.var1 : null, s.frequence === "hebdomadaire" && g.releves < 5 ? "depuis le premier relevé" : "sur un mois") + varTxt(g.var12, "sur un an") : ""}</div>
   </article>`;
 }
 
 function vueMarche() {
   if (marche.etat === "rien") chargerMarche();
   const tete = `<div class="entete-vue"><div class="titre"><h1>Marché</h1>
-      <p>Les cours mondiaux et les prix payés en France, mois par mois, sur 3 ans. La bande verte va du quart le plus bas au quart le plus haut : sous elle, c'est le moment de regarder.</p></div></div>`;
+      <p>Les cotations françaises chaque lundi, les cours mondiaux et les prix payés en France chaque mois. La bande verte va du quart le plus bas au quart le plus haut des 3 dernières années : sous elle, c'est le moment de regarder.</p></div></div>`;
   if (marche.etat === "charge" || marche.etat === "rien") return tete + '<div class="vide-liste">Chargement des cours…</div>';
   if (marche.etat === "erreur") return tete + `<div class="vide-liste">Les cours se lisent dans l'appli installée (malakit51.github.io/Valeur-engrais), avec du réseau la première fois.<br><br><button class="btn" data-action="recharger-marche">Réessayer</button></div>`;
   const d = marche.d, par = Object.fromEntries(d.series.map(s => [s.cle, s]));
-  const cartes = ORDRE_COURS.filter(k => par[k]).map(k => carteCours(par[k])).join("");
-  return tete + `<div class="grille-cours">${cartes}</div>
-    <p class="note">Relevé le ${new Date(d.maj).toLocaleDateString("fr-FR")}, chaque lundi. Banque mondiale (Pink Sheet, CC BY 4.0), en euros au taux mensuel de la BCE ; INSEE, indice IPAMPA (Licence Ouverte). Ce sont des cours de gros mondiaux et un indice national : ils donnent la tendance et le bon moment, ton prix livré suit avec un décalage. Une alerte arrive par GitHub quand un cours passe dans le quart le plus bas ou baisse de 8 % en un mois.</p>`;
+  const groupes = GROUPES_COURS.map(([titre, cles]) => {
+    const cartes = cles.filter(k => par[k] && par[k].points.length).map(k => carteCours(par[k])).join("");
+    return cartes ? `<h2 class="groupe-cours">${titre}</h2><div class="grille-cours">${cartes}</div>` : "";
+  }).join("");
+  return tete + groupes + `
+    <p class="note">Relevé le ${new Date(d.maj).toLocaleDateString("fr-FR")}, chaque lundi. Cotations françaises : <a href="https://www.web-agri.fr/marches-agricoles/engrais" target="_blank" rel="noopener">Web-agri</a>, cotations du jour, relevées une fois par semaine (leur historique se construit ici depuis le 29/10/2026). Cours mondiaux : Banque mondiale (Pink Sheet, CC BY 4.0), en euros au taux mensuel de la BCE. Prix payés en France : INSEE, indice IPAMPA (Licence Ouverte). Ce sont des prix de gros : ils donnent la tendance et le bon moment, ton prix livré suit avec un décalage. Une alerte arrive par GitHub quand un cours passe dans le quart le plus bas de ses 3 ans, ou baisse fortement (5 % en 4 semaines pour une cotation française, 8 % en un mois pour un cours mondial).</p>`;
 }
 
 // le doigt (ou la souris) sur une courbe : le mois et le cours
@@ -767,7 +782,7 @@ function brancherCourbes() {
   if (marche.etat !== "ok") return;
   const par = Object.fromEntries(marche.d.series.map(s => [s.cle, s]));
   document.querySelectorAll("[data-courbe]").forEach(box => {
-    const s = par[box.dataset.courbe], pts = s.points.slice(-(marche.d.fenetre_mois || 36));
+    const s = par[box.dataset.courbe], pts = s.points.slice(-fenetreCours(s));
     const svg = box.querySelector("svg"), viseur = box.querySelector("[data-viseur]"), point = box.querySelector("[data-curseur]"), bulle = box.querySelector("[data-bulle]");
     const L = 340, g0 = 34, d0 = 8, fin = {cx: point.getAttribute("cx"), cy: point.getAttribute("cy")};
     const ys = [...svg.querySelector(".ligne").getAttribute("d").matchAll(/[ML]([\d.]+),([\d.]+)/g)].map(m => [+m[1], +m[2]]);
