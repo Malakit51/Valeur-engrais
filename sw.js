@@ -1,7 +1,7 @@
 // Valeur des engrais : le service worker de l'appli installée. La page vient d'Internet quand il y a du réseau (donc
 // toujours à jour), sinon de la copie gardée sur le téléphone : l'appli s'ouvre aussi au champ sans réseau. Les
 // polices (Google Fonts) sont gardées à la première lecture.
-const CACHE = "valeur-engrais-v1";
+const CACHE = "valeur-engrais-v2";
 const FICHIERS = ["./", "index.html", "manifest.webmanifest", "icone.svg", "icone-192.png", "icone-512.png", "icone-apple.png"];
 
 self.addEventListener("install", ev => {
