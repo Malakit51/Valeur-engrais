@@ -1,0 +1,18 @@
+{
+  "id": "valeur-engrais",
+  "name": "Valeur des engrais",
+  "short_name": "Engrais",
+  "description": "La valeur réelle des engrais, des organiques et de la paille exportée, d'après le prix de l'unité de tes engrais de référence.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#edf0ec",
+  "theme_color": "#1f6b52",
+  "icons": [
+    {"src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

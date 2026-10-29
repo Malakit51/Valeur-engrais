@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Valeur des engrais : un sac d'engrais (N, P, K) sur fond vert, la pastille € du prix de l'unité -->
+  <rect width="512" height="512" fill="#1f6b52"/>
+  <g transform="translate(64 56) scale(0.75)">
+  <path d="M156 132 C176 112 336 112 356 132 L384 400 C386 420 372 432 352 432 L160 432 C140 432 126 420 128 400 Z" fill="#f3efe4"/>
+  <path d="M164 132 C186 150 326 150 348 132" fill="none" stroke="#d9d2bf" stroke-width="10" stroke-linecap="round"/>
+  <path d="M190 118 L322 118" stroke="#d9d2bf" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="196" cy="262" r="28" fill="#2f6fae"/>
+  <circle cx="256" cy="262" r="28" fill="#b4502f"/>
+  <circle cx="316" cy="262" r="28" fill="#7350ad"/>
+  <rect x="186" y="330" width="140" height="14" rx="7" fill="#c9c2ad"/>
+  <rect x="210" y="362" width="92" height="14" rx="7" fill="#c9c2ad"/>
+  <circle cx="372" cy="380" r="64" fill="#e7b75e" stroke="#1f6b52" stroke-width="12"/>
+  <text x="372" y="404" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="72" fill="#1f6b52">€</text>
+  </g>
+</svg>

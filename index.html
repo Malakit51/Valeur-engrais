@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Valeur des engrais</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#1f6b52">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icone-apple.png">
+<!--
+  Calculateur autonome tiré du module Engrais de Tournière (29/10/2026).
+  Le prix de l'unité de chaque élément se lit sur un engrais de référence par élément (Maxime, 29/10/2026). La valeur
+  réelle d'un produit : serveur/13_engrais.valeur_produit (un organique compte pour sa part efficace la 1re année), plus
+  pour un organique la valeur de son humus stable (matière organique × K1 du type, comme le module Engrais neuf).
+  Un seul fichier, rien à installer : les saisies restent dans ce navigateur.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Mise en page : une appli de poche. Trois onglets (barre du bas sur téléphone), des listes courtes, une fiche par
+   produit qui s'ouvre par-dessus (feuille du bas sur téléphone, panneau à droite sur ordinateur). */
+:root {
+  --fond: #edf0ec; --surface: #ffffff; --surface-2: #f4f6f3; --encre: #18201b; --doux: #4d5951; --trait: #d6ddd6; --trait-fort: #aab6ad;
+  --accent: #1f6b52; --accent-encre: #ffffff; --accent-f: #dcece4;
+  --bon: #1f7a47; --bon-f: #dff1e5; --cher: #b03a28; --cher-f: #f8e3df; --att: #8d5d0c; --att-f: #f8ecd4;
+  --n: #2f6fae; --p: #b4502f; --k: #7350ad; --mg: #2a8a80; --s: #a88a10; --humus: #6b4f2e;
+  --voile: rgba(16, 22, 18, .42); --ombre: 0 10px 40px rgba(16, 22, 18, .18);
+  --f-titre: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-texte: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-chiffre: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --rayon: 12px; --barre: 64px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fond: #111513; --surface: #1a1f1c; --surface-2: #232a25; --encre: #e9eee9; --doux: #a8b3ab; --trait: #2f3832; --trait-fort: #4f5b53;
+    --accent: #62c49f; --accent-encre: #0b1812; --accent-f: #1d3229;
+    --bon: #72d39c; --bon-f: #1c3324; --cher: #f1907e; --cher-f: #3b231f; --att: #e7b75e; --att-f: #362c1b;
+    --n: #79aee6; --p: #eb9070; --k: #b79cec; --mg: #6fcdc1; --s: #dcc14c; --humus: #c9a57a;
+    --voile: rgba(0, 0, 0, .6); --ombre: 0 10px 40px rgba(0, 0, 0, .5); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fond: #111513; --surface: #1a1f1c; --surface-2: #232a25; --encre: #e9eee9; --doux: #a8b3ab; --trait: #2f3832; --trait-fort: #4f5b53;
+  --accent: #62c49f; --accent-encre: #0b1812; --accent-f: #1d3229;
+  --bon: #72d39c; --bon-f: #1c3324; --cher: #f1907e; --cher-f: #3b231f; --att: #e7b75e; --att-f: #362c1b;
+  --n: #79aee6; --p: #eb9070; --k: #b79cec; --mg: #6fcdc1; --s: #dcc14c; --humus: #c9a57a;
+  --voile: rgba(0, 0, 0, .6); --ombre: 0 10px 40px rgba(0, 0, 0, .5); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--fond); color: var(--encre); font: 16px/1.45 var(--f-texte); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chiffre { font-family: var(--f-chiffre); font-variant-numeric: tabular-nums; }
+.doux { color: var(--doux); }
+
+/* en-tête */
+.tete { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--trait); }
+.tete-in { max-width: 980px; margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.marque { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
+.marque b { font: 700 1.3rem/1.1 var(--f-titre); letter-spacing: .01em; }
+.marque small { color: var(--doux); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icone { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); }
+.icone:hover { background: var(--surface-2); }
+.icone svg { width: 22px; height: 22px; }
+
+/* onglets : en haut sur ordinateur, en bas sur téléphone */
+.onglets { display: flex; gap: 4px; }
+.onglets button { border: none; background: none; padding: 8px 14px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--doux); font-weight: 600; font-size: .95rem; }
+.onglets button svg { width: 22px; height: 22px; display: none; }
+.onglets button[aria-selected="true"] { color: var(--accent); background: var(--accent-f); }
+@media (max-width: 719px) {
+  .onglets { position: fixed; inset: auto 0 0 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--trait);
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+  .onglets button { flex: 1; font-size: .78rem; padding: 6px 4px; }
+  .onglets button svg { display: block; }
+  main { padding-bottom: calc(var(--barre) + 24px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+
+main { max-width: 980px; margin: 0 auto; padding-block: 18px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.entete-vue { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; margin-bottom: 14px; }
+.entete-vue h1 { font: 700 1.6rem/1.1 var(--f-titre); margin: 0; text-wrap: balance; }
+.entete-vue p { margin: 2px 0 0; color: var(--doux); font-size: .92rem; max-width: 60ch; }
+.entete-vue .titre { flex: 1 1 260px; min-width: 0; }
+.outils { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* boutons : principal (plein), secondaire (contour), suppression (rouge) ; 44 px, 40 px pour « petit » ;
+   choix (seg) : l'option choisie en plein, les autres en clair */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: 10px;
+  border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); font-weight: 700; font-size: .95rem; line-height: 1.2; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn:hover { background: var(--surface-2); border-color: var(--doux); }
+.btn.plein { background: var(--accent); border-color: var(--accent); color: var(--accent-encre); }
+.btn.plein:hover { background: var(--accent); filter: brightness(1.08); }
+.btn.danger { color: var(--cher); border-color: color-mix(in srgb, var(--cher) 55%, var(--surface)); }
+.btn.danger:hover { background: var(--cher-f); border-color: var(--cher); }
+.btn.danger.arme { background: var(--cher); border-color: var(--cher); color: var(--surface); }
+.btn.petit { min-height: 40px; padding: 6px 12px; font-size: .9rem; }
+.btn.bloc { width: 100%; }
+
+.seg { display: inline-flex; background: var(--surface-2); border: 1.5px solid var(--trait-fort); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { border: none; background: none; border-radius: 7px; padding: 6px 12px; font-weight: 700; font-size: .9rem; color: var(--encre); min-height: 36px; line-height: 1.2; }
+.seg button:hover { background: var(--surface); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-encre); }
+.seg.large { display: flex; }
+.seg.large button { flex: 1; }
+
+/* listes */
+.liste { display: grid; gap: 8px; }
+.ligne { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left; color: var(--encre);
+  background: var(--surface); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px 14px; min-height: 64px; }
+.ligne:hover { border-color: var(--doux); }
+.ligne .nom { font-weight: 700; font-size: 1.02rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne .bas { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: .88rem; color: var(--doux); }
+.ligne .droite { text-align: right; white-space: nowrap; }
+.ligne .gros { font: 600 1.05rem var(--f-chiffre); font-variant-numeric: tabular-nums; }
+.ligne .gros small { font-family: var(--f-texte); font-weight: 400; color: var(--doux); font-size: .78rem; margin-left: 2px; }
+.ligne.hors { opacity: .62; }
+.vide-liste { background: var(--surface); border: 1px dashed var(--trait); border-radius: var(--rayon); padding: 22px; text-align: center; color: var(--doux); }
+
+.formule { font: 500 .86rem var(--f-chiffre); color: var(--encre); background: var(--surface-2); border: 1px solid var(--trait); border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+.pastille { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.pastille.bon { background: var(--bon-f); color: var(--bon); }
+.pastille.cher { background: var(--cher-f); color: var(--cher); }
+.pastille.egal { background: var(--surface-2); color: var(--doux); border: 1px solid var(--trait); }
+.pastille.att { background: var(--att-f); color: var(--att); font-weight: 600; }
+.pastille.ref { background: var(--accent-f); color: var(--accent); }
+
+/* prix de l'unité */
+.unites { display: grid; gap: 8px; }
+.unite { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto 20px; gap: 12px; align-items: center; width: 100%; text-align: left; color: var(--encre);
+  background: var(--surface); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px 14px; min-height: 72px; }
+.unite:hover { border-color: var(--doux); }
+.unite .sym { width: 52px; height: 52px; border-radius: 10px; display: grid; place-items: center; font: 700 1.15rem var(--f-titre);
+  color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 35%, var(--surface)); }
+.unite .src { min-width: 0; }
+.unite .src b { display: block; font-weight: 700; }
+.unite .src span { display: block; color: var(--doux); font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unite .val { font: 600 1.45rem var(--f-chiffre); font-variant-numeric: tabular-nums; text-align: right; }
+.unite .val small { display: block; font: 400 .74rem var(--f-texte); color: var(--doux); }
+.unite.vide .val { color: var(--doux); }
+.chevron { width: 20px; height: 20px; color: var(--doux); }
+.note { font-size: .88rem; color: var(--doux); margin: 14px 2px 0; max-width: 65ch; }
+
+/* fiche */
+.voile { position: fixed; inset: 0; z-index: 20; background: var(--voile); display: flex; align-items: flex-end; justify-content: center; }
+.feuille { background: var(--surface); width: 100%; max-width: 560px; max-height: calc(94% - env(safe-area-inset-top, 0px)); display: flex; flex-direction: column;
+  border-radius: 18px 18px 0 0; box-shadow: var(--ombre); animation: monte .2s ease-out; }
+@media (min-width: 720px) {
+  .voile { justify-content: flex-end; align-items: stretch; }
+  .feuille { max-width: 460px; max-height: none; border-radius: 0; animation-name: glisse; }
+}
+@keyframes monte { from { transform: translateY(24px); opacity: .4; } }
+@keyframes glisse { from { transform: translateX(24px); opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .feuille { animation: none; } }
+.feuille-tete { display: flex; align-items: center; gap: 10px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 10px 16px; border-bottom: 1px solid var(--trait); }
+.feuille-tete h2 { font: 700 1.3rem/1.15 var(--f-titre); margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feuille-corps { overflow-y: auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 0; overscroll-behavior: contain; }
+.feuille-corps > * + * { margin-top: 18px; }
+.feuille-corps > .groupe + .groupe, .feuille-corps > .groupe + .pied-fiche, .feuille-corps > details + .pied-fiche, .feuille-corps > .groupe + details { padding-top: 18px; border-top: 1px solid var(--trait); }
+.poignee { width: 40px; height: 4px; border-radius: 4px; background: var(--trait); margin: 8px auto 0; }
+@media (min-width: 720px) { .poignee { display: none; } }
+
+.bilan { background: var(--surface-2); border: 1.5px solid var(--trait-fort); border-radius: var(--rayon); padding: 14px; display: grid; gap: 10px; }
+.bilan .haut { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.bilan .grand { font: 600 1.8rem var(--f-chiffre); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.bilan .grand small { font: 400 .85rem var(--f-texte); color: var(--doux); margin-left: 4px; }
+.bilan .etiq { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--doux); font-weight: 600; }
+.deux { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.deux > div { background: var(--surface); border: 1px solid var(--trait); border-radius: 10px; padding: 10px; display: grid; gap: 4px; align-content: start; }
+.detail { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.detail td { padding: 4px 0; border-top: 1px solid var(--trait); }
+.detail td:not(:first-child) { text-align: right; font-family: var(--f-chiffre); font-variant-numeric: tabular-nums; }
+.detail tr.total td { font-weight: 700; }
+
+.groupe { display: grid; gap: 10px; }
+.groupe > h3 { margin: 0; font: 700 1.08rem/1.2 var(--f-titre); letter-spacing: .01em; color: var(--encre); display: flex; align-items: baseline; gap: 8px; }
+.groupe > h3 small { font: 600 .82rem var(--f-texte); color: var(--doux); }
+.champs { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.champs.trois { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.champs .large { grid-column: 1 / -1; }
+.champ { display: grid; gap: 4px; min-width: 0; }
+.champ > span { font-size: .86rem; color: var(--encre); font-weight: 600; }
+.champ input, .champ select { width: 100%; min-height: 46px; padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); min-width: 0; }
+.champ input:hover, .champ select:hover { border-color: var(--doux); }
+.champ input:focus, .champ select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.champ input::placeholder { color: var(--doux); opacity: .75; }
+.champ input.num { text-align: right; font-family: var(--f-chiffre); font-variant-numeric: tabular-nums; }
+.champ .avec-u { position: relative; display: block; }
+.champ .avec-u input { padding-right: 40px; }
+.champ .avec-u i { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--doux); font-size: .82rem; pointer-events: none; }
+.refs { display: grid; gap: 10px; }
+.refp { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; display: grid; gap: 10px; background: var(--surface-2); }
+.refp-tete { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.refp-tete b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 1.08rem var(--f-titre); }
+.champ .seg { min-height: 46px; }
+.champ .seg button { min-height: 38px; }
+.pied-fiche { display: grid; }
+.reglage-paille { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.puce { min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); font-weight: 700; font-size: .9rem; }
+.puce[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-encre); }
+.el-titre, .champ > span.el-titre { font-weight: 700; color: var(--c); }
+.bascule { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--trait); border-radius: 10px; background: var(--surface-2); }
+.bascule input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.bascule span { font-size: .92rem; }
+.aide-champ { font-size: .84rem; color: var(--doux); margin: 0; }
+details.plus summary { cursor: pointer; font-weight: 700; color: var(--accent); padding: 6px 0; min-height: 36px; display: flex; align-items: center; gap: 8px; list-style: none; }
+details.plus summary::-webkit-details-marker { display: none; }
+details.plus summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; flex: none; }
+details.plus[open] summary::before { transform: rotate(45deg); }
+details.plus[open] summary { margin-bottom: 10px; }
+.sources { margin: 0; padding-left: 18px; font-size: .9rem; display: grid; gap: 4px; }
+.prose { font-size: .95rem; display: grid; gap: 10px; }
+.prose p, .prose ol { margin: 0; }
+.prose h3 { margin: 6px 0 0; font: 700 1.1rem var(--f-titre); }
+.menu { display: grid; gap: 8px; }
+.menu .btn { justify-content: flex-start; }
+.menu .btn small { display: block; font-weight: 400; color: var(--doux); }
+
+/* message */
+.toast { position: fixed; z-index: 30; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--encre); color: var(--surface); border-radius: 12px; padding: 10px 12px 10px 16px; display: flex; gap: 12px; align-items: center;
+  box-shadow: var(--ombre); max-width: calc(100% - 32px); font-size: .95rem; }
+.toast button { background: none; border: none; color: var(--accent-f); font-weight: 700; padding: 6px 8px; }
+@media (max-width: 719px) { .toast { bottom: calc(var(--barre) + 16px + env(safe-area-inset-bottom, 0px)); } }
+</style>
+</head>
+<body>
+<header class="tete">
+  <div class="tete-in">
+    <div class="marque"><b>Valeur des engrais</b><small id="sous-titre"></small></div>
+    <nav class="onglets" id="onglets" role="tablist" aria-label="Rubriques">
+      <button role="tab" data-vue="prix" id="o-prix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Prix de l'unité</button>
+      <button role="tab" data-vue="mineraux" id="o-mineraux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12l2 5v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M4 8h16M9 13h6"/></svg>Minéraux</button>
+      <button role="tab" data-vue="organiques" id="o-organiques"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-4.5-2-7-5.5-7-10 4 0 7 2 7 6 0-5 3-8 7-8 0 6-2.5 10-7 12z"/></svg>Organiques</button>
+      <button role="tab" data-vue="paille" id="o-paille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8M12 8c0-3 2-5 4-6 0 3-1 5-4 6zM12 8c0-3-2-5-4-6 0 3 1 5 4 6zM12 13c2-2 4-2 6-2-1 2-3 3-6 2zM12 13c-2-2-4-2-6-2 1 2 3 3 6 2zM12 18c2-2 4-2 6-2-1 2-3 3-6 2zM12 18c-2-2-4-2-6-2 1 2 3 3 6 2z"/></svg>Paille</button>
+    </nav>
+    <button class="icone" id="b-menu" aria-label="Menu : enregistrer, ouvrir, méthode"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+  </div>
+</header>
+<main id="vue"></main>
+<div class="voile" id="voile" hidden><section class="feuille" id="feuille" role="dialog" aria-modal="true" aria-labelledby="feuille-titre"></section></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<input type="file" id="b-import" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+const ELEMENTS = ["N", "P2O5", "K2O", "MgO", "SO3"];
+const NOMS = {N: "N", P2O5: "P₂O₅", K2O: "K₂O", MgO: "MgO", SO3: "SO₃"};
+const NOMS_LONGS = {N: "Azote", P2O5: "Phosphore", K2O: "Potasse", MgO: "Magnésie", SO3: "Soufre"};
+const COULEURS = {N: "var(--n)", P2O5: "var(--p)", K2O: "var(--k)", MgO: "var(--mg)", SO3: "var(--s)"};
+const CLE = "tourniere-valeur-engrais-v1";
+const VUES = ["prix", "mineraux", "organiques", "paille"];
+
+// Types d'organiques (module Engrais de Tournière, d'après le COMIFER) : part d'azote efficace au printemps et à
+// l'automne ; P₂O₅ 80 %, K₂O 100 % pour tous
+const TYPES = [
+  {type: "lisier_porc", nom: "Lisier de porc", printemps: 55, automne: 5, unite: "m3"},
+  {type: "lisier_bovin", nom: "Lisier de bovin", printemps: 50, automne: 10, unite: "m3"},
+  {type: "digestat", nom: "Digestat liquide", printemps: 55, automne: 5, unite: "m3"},
+  {type: "digestat_solide", nom: "Digestat solide", printemps: 30, automne: 5},
+  {type: "fientes", nom: "Fientes de volailles", printemps: 60, automne: 10},
+  {type: "fumier_porc", nom: "Fumier de porc ou de volailles", printemps: 40, automne: 10},
+  {type: "fumier_bovin", nom: "Fumier de bovin, d'ovin ou de cheval", printemps: 25, automne: 10},
+  {type: "compost", nom: "Compost", printemps: 10, automne: 5},
+  {type: "vinasse", nom: "Vinasse", printemps: 50, automne: 15},
+  {type: "boues", nom: "Boues de station", printemps: 35, automne: 5},
+  {type: "boues_papetieres", nom: "Boues papetières", printemps: 0, automne: 0},
+].map(t => ({...t, p2o5: 80, k2o: 100}));
+// matière organique habituelle (kg par t ou m³, le bulletin fait foi) et part qui fait de l'humus stable (coefficient
+// isohumique K1, %) : SIMEOS-AMG 2019 (Arvalis / Agro-Transfert), comme serveur/13_engrais.MO_TYPES
+const MO_TYPES = {lisier_porc: [30, 51], lisier_bovin: [60, 46], digestat: [40, 63], digestat_solide: [200, 63],
+  fientes: [450, 41], fumier_porc: [180, 61], fumier_bovin: [200, 67], compost: [250, 72], vinasse: [300, 55],
+  boues: [150, 47], boues_papetieres: [250, 61]};
+TYPES.forEach(t => { [t.mo, t.k1] = MO_TYPES[t.type] || [null, null]; });
+// la paille exportée (Tournière, engrais_tables.prix_plancher_paille, 27/10/2026) : ce qu'elle rendrait enfouie. P₂O₅,
+// K₂O, MgO par t (table 2007 du COMIFER, RESIDUS) ; son humus stable : 130 kg par t (K1 0,15 de la matière sèche,
+// Arvalis/Onidol 2007, × 87 % de MS) ; moins l'azote que son enfouissement bloque (faim d'azote) : 5 u par t ; t/ha
+// vendables courants (PAILLE_T_DEFAUT ; colza, lin et pois ne sont guère pressés : pas de tonnage)
+const PAILLES = [
+  {cle: "ble", nom: "Blé", P2O5: 1.70, K2O: 12.3, MgO: 0.85, t: 4},
+  {cle: "orge", nom: "Orge", P2O5: 1.00, K2O: 12.9, MgO: 0.75, t: 3.5},
+  {cle: "avoine", nom: "Avoine", P2O5: 3.00, K2O: 12.0, MgO: 1.00, t: 3.5},
+  {cle: "seigle", nom: "Seigle", P2O5: 3.00, K2O: 12.0, MgO: 2.0, t: 4.5},
+  {cle: "triticale", nom: "Triticale", P2O5: 2.00, K2O: 10.0, MgO: 2.0, t: 4.5},
+  {cle: "colza", nom: "Colza", P2O5: 1.70, K2O: 14.5, MgO: 0.75, t: null},
+  {cle: "lin", nom: "Lin", P2O5: 2.05, K2O: 7.20, MgO: 1.30, t: null},
+  {cle: "pois", nom: "Pois", P2O5: 2.10, K2O: 19.0, MgO: 2.05, t: null},
+];
+const PAILLE_HUMUS = 130, PAILLE_N = 5;
+// ce qui compte par défaut, comme Tournière sur un sol qui manque de P et K mais pas de MgO
+const PAILLE_COMPTE = {P2O5: true, K2O: true, MgO: false, humus: true, N: true};
+
+// € pour 100 kg d'humus stable (engrais_tables.HUMUS_REF : 40-50 €/t, Chambre d'agriculture de la Vienne 2022)
+const HUMUS_DEFAUT = 5;
+const TYPE = Object.fromEntries(TYPES.map(t => [t.type, t]));
+
+// des engrais du commerce, pour remplir une fiche d'un geste (teneurs en %)
+const COURANTS = [
+  {nom: "Ammonitrate 33,5", t: {N: 33.5}}, {nom: "Ammonitrate 27", t: {N: 27}}, {nom: "Urée 46", t: {N: 46}},
+  {nom: "Solution azotée 30", t: {N: 30}, densite: 1.3},
+  {nom: "Solution soufrée 26 + SO₃", t: {N: 26, SO3: 17.5}, densite: 1.27}, {nom: "Sulfate d'ammoniaque", t: {N: 21, SO3: 60}},
+  {nom: "TSP 45 (super 45)", t: {P2O5: 45}}, {nom: "18-46 (DAP)", t: {N: 18, P2O5: 46}}, {nom: "11-52 (MAP)", t: {N: 11, P2O5: 52}},
+  {nom: "Chlorure de potasse 60", t: {K2O: 60}}, {nom: "Sulfate de potasse", t: {K2O: 50, SO3: 45}},
+  {nom: "Kiésérite", t: {MgO: 25, SO3: 50}}, {nom: "Patentkali", t: {K2O: 30, MgO: 10, SO3: 42}},
+  {nom: "Polysulfate", t: {K2O: 14, MgO: 6, SO3: 48}}, {nom: "Soufre 90 (pastilles)", t: {SO3: 225}},
+  {nom: "0-25-25", t: {P2O5: 25, K2O: 25}}, {nom: "0-20-30", t: {P2O5: 20, K2O: 30}}, {nom: "15-15-15", t: {N: 15, P2O5: 15, K2O: 15}},
+];
+
+// les engrais de référence (Maxime, 29/10/2026) : le prix de l'unité de chaque élément se lit sur eux (plusieurs par
+// élément possibles : leur moyenne ou le moins cher) ; le soufre et la magnésie n'ont pas de simple courant : ce qui
+// reste de leur prix une fois l'autre élément payé
+const CALCULS = {moyenne: "Moyenne", mini: "Le moins cher"};
+const REFERENCES = [
+  {el: "N", nom: "Solution azotée 30", t: {N: 30}, prix: 480},
+  {el: "P2O5", nom: "TSP 45 (super 45)", t: {P2O5: 45}, prix: 620},
+  {el: "K2O", nom: "Chlorure de potasse 60", t: {K2O: 60}, prix: 430},
+  {el: "SO3", nom: "Sulfate d'ammoniaque", t: {N: 21, SO3: 60}, prix: 450},
+  {el: "MgO", nom: "Kiésérite", t: {MgO: 25, SO3: 50}, prix: 380},
+];
+
+// exemples de départ : les trois azotés de Maxime avec ses prix, le reste en ordre de grandeur, à remplacer
+const refsDe = liste => Object.fromEntries(ELEMENTS.map(e => [e, {calcul: "moyenne",
+  produits: liste.filter(r => r.el === e).map(({nom, t, prix}) => ({id: nouvelId(), nom, t: {...t}, prix}))}]));
+const EXEMPLES = {
+  refs: null,       // rempli par complete() d'après REFERENCES
+  humus: HUMUS_DEFAUT,
+  mineraux: [
+    {nom: "Solution azotée 30", t: {N: 30}, prix: 480},
+    {nom: "Ammonitrate 27", t: {N: 27}, prix: 450},
+    {nom: "Solution 26.6 + SO₃", t: {N: 26.6, SO3: 17.5}, prix: 400},
+    {nom: "Super 45", t: {P2O5: 45}, prix: 620},
+    {nom: "Chlorure de potasse 60", t: {K2O: 60}, prix: 430},
+    {nom: "Soufre 90 (pastilles)", t: {SO3: 225}, prix: 450},
+    {nom: "Kiésérite", t: {MgO: 25, SO3: 50}, prix: 380},
+    {nom: "18-46 (DAP)", t: {N: 18, P2O5: 46}, prix: 780},
+    {nom: "0-25-25", t: {P2O5: 25, K2O: 25}, prix: 520},
+    {nom: "Patentkali", t: {K2O: 30, MgO: 10, SO3: 42}, prix: 560},
+  ],
+  organiques: [
+    {nom: "Fumier de bovin", type: "fumier_bovin", unite: "t", t: {N: 6, P2O5: 3, K2O: 9, MgO: 1.5, SO3: 1.5}, prix: 15, epandage: 6, dose: 25},
+    {nom: "Digestat liquide", type: "digestat", unite: "m3", t: {N: 5, P2O5: 1.8, K2O: 5}, prix: 3, epandage: 5, dose: 30},
+    {nom: "Vinasse", type: "vinasse", unite: "t", t: {N: 30, P2O5: 4, K2O: 55, SO3: 12}, prix: 70, epandage: 0, dose: 2},
+  ],
+};
+
+// ---------------------------------------------------------------- outils
+function nombre(v) {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  const x = parseFloat(String(v).replace(/\s/g, "").replace(",", ".").replace(/[^\d.\-]/g, ""));
+  return isFinite(x) ? x : null;
+}
+const f0 = new Intl.NumberFormat("fr-FR", {maximumFractionDigits: 0});
+const f1 = new Intl.NumberFormat("fr-FR", {maximumFractionDigits: 1});
+const f2 = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const champTxt = v => v === null || v === undefined ? "" : String(v).replace(".", ",");
+const echap = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const parU = o => o.unite === "m3" ? "m³" : "t";
+const nouvelId = () => Math.random().toString(36).slice(2, 9);
+const $ = s => document.querySelector(s);
+const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>';
+
+function lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } }
+function ecrire(cle, v) { try { localStorage.setItem(cle, v); } catch (e) { /* navigation privée : rien de gardé */ } }
+
+// un état d'avant les engrais de référence (ou un fichier incomplet) : ce qui manque, d'après les exemples
+function complete(d) {
+  // plus que les engrais de référence (Maxime, 29/10/2026) : l'ancien mode « d'après mes engrais » et les prix imposés
+  // d'un fichier d'avant sont oubliés
+  delete d.mode;
+  delete d.prixImposes;
+  d.mineraux.forEach(p => { delete p.compte; });
+  if (nombre(d.humus) === null) d.humus = HUMUS_DEFAUT;
+  d.paille = d.paille && typeof d.paille === "object" ? d.paille : {};
+  d.paille.compte = {...PAILLE_COMPTE, ...(d.paille.compte || {})};
+  d.paille.cultures = d.paille.cultures || {};
+  // un état d'avant (un engrais de référence par élément, d.references) : chacun devient le seul de son élément
+  if (!d.refs || typeof d.refs !== "object") {
+    const anciens = Array.isArray(d.references) ? d.references : [];
+    d.refs = refsDe(REFERENCES.map(r => anciens.find(y => y && y.el === r.el && y.t) || r));
+  }
+  delete d.references;
+  const sol39 = r => { const k = Object.keys(r.t || {}).filter(e => nombre(r.t[e]) > 0); if (k.length === 1 && k[0] === "N" && nombre(r.t.N) === 39) { r.t = {N: 30}; r.prixPar = "m3"; r.densite = 1.3; } };
+  for (const e of ELEMENTS) {
+    const x = d.refs[e] = d.refs[e] || {calcul: "moyenne", produits: []};
+    x.calcul = x.calcul === "mini" ? "mini" : "moyenne";
+    x.produits = (Array.isArray(x.produits) ? x.produits : []).filter(Boolean);
+    x.produits.forEach(r => { r.t = r.t || {}; r.id = r.id || nouvelId(); sol39(r); });
+  }
+  d.mineraux.forEach(p => { p.t = p.t || {}; p.id = p.id || nouvelId(); sol39(p); });
+  d.organiques.forEach(o => { o.t = o.t || {}; o.id = o.id || nouvelId(); });
+  return d;
+}
+function charger() {
+  try {
+    const d = JSON.parse(lire(CLE));
+    if (d && Array.isArray(d.mineraux) && Array.isArray(d.organiques)) return complete(d);
+  } catch (e) { /* rien de lisible : les exemples */ }
+  return complete(structuredClone(EXEMPLES));
+}
+let etat = charger();
+const sauver = () => ecrire(CLE, JSON.stringify(etat));
+
+// ---------------------------------------------------------------- prix à la tonne ou au m³
+// les teneurs sont toujours en % du poids ; un liquide peut se payer au m³ (« solution 39 » = la solution 30 au m³ :
+// 30 % × 1,3 = 390 u par m³) : son prix à la tonne = prix au m³ ÷ densité
+const DENSITE_DEFAUT = 1.3;
+const auM3 = p => p.prixPar === "m3";
+const densite = p => nombre(p.densite) > 0 ? nombre(p.densite) : DENSITE_DEFAUT;
+const prixTonne = p => { const v = nombre(p.prix); return v === null ? null : auM3(p) ? v / densite(p) : v; };
+const facteur = p => auM3(p) ? densite(p) : 1;          // de « par t » à « par unité de prix »
+const uPrix = p => auM3(p) ? "m³" : "t";
+
+// ---------------------------------------------------------------- le calcul (repris de Tournière)
+// u par tonne d'un minéral
+function unitesMineral(p) {
+  const o = {};
+  for (const e of ELEMENTS) { const v = nombre(p.t[e]); if (v > 0) o[e] = v * 10; }
+  return o;
+}
+
+// le prix de l'unité, d'après les engrais de référence : chacun paie son élément une fois les autres payés (le sulfate
+// d'ammoniaque après la solution 30, la kiésérite après le soufre) ; un reste négatif compte pour 0. Plusieurs engrais
+// pour un élément : leur moyenne, ou le moins cher. Un élément attend que tous ses engrais puissent se calculer ; s'il
+// reste bloqué (une référence circulaire), il se calcule avec ceux qui le peuvent.
+function prixUnite() {
+  const connus = {}, detail = {};
+  const prets = e => etat.refs[e].produits.filter(r => prixTonne(r) > 0 && unitesMineral(r)[e] > 0);
+  const evaluer = (e, strict) => {
+    const tous = prets(e);
+    const ps = tous.filter(r => Object.keys(unitesMineral(r)).every(k => k === e || k in connus));
+    if (!ps.length || (strict && ps.length < tous.length)) return false;
+    const xs = ps.map(r => {
+      const u = unitesMineral(r), prix = prixTonne(r), autres = Object.keys(u).filter(k => k !== e);
+      const deja = autres.reduce((s, k) => s + connus[k] * u[k], 0);
+      return {id: r.id, nom: r.nom, x: Math.max(0, (prix - deja) / u[e]),
+        calcul: (autres.length ? `(${f0.format(prix)} € − ${autres.map(k => `${f0.format(u[k])} u ${NOMS[k]} × ${f2.format(connus[k])} €`).join(" − ")}) ÷ ${f0.format(u[e])} u`
+          : `${f0.format(prix)} € ÷ ${f0.format(u[e])} u`) + (auM3(r) ? ` (${f0.format(nombre(r.prix))} €/m³ ÷ ${f2.format(densite(r))})` : "")};
+    });
+    const mini = etat.refs[e].calcul === "mini";
+    const v = mini ? Math.min(...xs.map(o => o.x)) : xs.reduce((s, o) => s + o.x, 0) / xs.length;
+    connus[e] = v;
+    detail[e] = {prix: v, sources: xs, mini, attente: tous.length - ps.length,
+      methode: xs.length === 1 ? xs[0].nom : mini ? `le moins cher de ${xs.length} engrais` : `moyenne de ${xs.length} engrais`};
+    return true;
+  };
+  for (const strict of [true, false]) {
+    for (let encore = true; encore;) {
+      encore = false;
+      for (const e of ELEMENTS) if (!(e in connus) && evaluer(e, strict)) encore = true;
+    }
+  }
+  for (const e in detail) detail[e].prix = Math.round(detail[e].prix * 1000) / 1000;
+  return detail;
+}
+
+// serveur/13_engrais.valeur_produit : sans valeur s'il manque le prix d'un élément ; un organique compte pour sa part
+// efficace la 1re année
+function valeurMineral(p, pe) {
+  let total = 0;
+  const u = unitesMineral(p), manque = [], lignes = [];
+  for (const [e, v] of Object.entries(u)) {
+    if (!pe[e]) { manque.push(e); continue; }
+    total += v * pe[e].prix;
+    lignes.push({e, u: v, pu: pe[e].prix, euros: v * pe[e].prix});
+  }
+  return manque.length ? {manque} : {valeur: total, unites: u, lignes};
+}
+
+function partsOrganique(o) {
+  const ty = TYPE[o.type] || {};
+  const pick = (v, d) => nombre(v) !== null ? nombre(v) : d;
+  return {printemps: pick(o.eff_printemps, ty.printemps), automne: pick(o.eff_automne, ty.automne),
+          P2O5: pick(o.eff_p2o5, ty.p2o5), K2O: pick(o.eff_k2o, ty.k2o)};
+}
+
+// kg d'humus stable par t (ou m³) : sa matière organique (fiche, sinon son type) × K1 (fiche, sinon son type)
+function humusOrganique(o) {
+  const ty = TYPE[o.type] || {};
+  const mo = nombre(o.mo) !== null ? nombre(o.mo) : ty.mo, k1 = nombre(o.k1) !== null ? nombre(o.k1) : ty.k1;
+  if (!(mo > 0) || !(k1 > 0)) return null;
+  return {kg: mo * k1 / 100, mo, k1, euros: mo * k1 / 100 * (nombre(etat.humus) || 0) / 100};
+}
+
+function valeurOrganique(o, pe, saison) {
+  const parts = partsOrganique(o);
+  let total = 0, plein = 0;
+  const manque = [], lignes = [];
+  for (const e of ELEMENTS) {
+    const v = nombre(o.t[e]);
+    if (!(v > 0)) continue;
+    if (!pe[e]) { manque.push(e); continue; }
+    let part = 100;
+    if (e === "N") {
+      const a = saison === "printemps" ? parts.printemps : parts.automne, b = saison === "printemps" ? parts.automne : parts.printemps;
+      part = a !== undefined && a !== null ? a : b;
+    } else if (e === "P2O5" || e === "K2O") part = parts[e];
+    part = part === undefined || part === null ? 100 : part;
+    total += v * part / 100 * pe[e].prix;
+    plein += v * pe[e].prix;
+    lignes.push({e, u: v * part / 100, part, pu: pe[e].prix, euros: v * part / 100 * pe[e].prix});
+  }
+  if (manque.length) return {manque};
+  const h = humusOrganique(o);
+  return {valeur: total + (h ? h.euros : 0), elements: total, humus: h, plein: plein + (h ? h.euros : 0), lignes};
+}
+
+// la valeur de la paille exportée, par t : ce qu'elle rendrait enfouie (P, K, MgO s'ils comptent, son humus), moins
+// l'azote que son enfouissement bloque ; sous ce prix, la garder rapporte plus que la vendre
+function paille(c) {
+  const reg = etat.paille.cultures[c.cle] || {}, compte = etat.paille.compte, pe = prixUnite();
+  const val = k => nombre(reg[k]) !== null ? nombre(reg[k]) : c[k];
+  const lignes = [], manque = [];
+  for (const e of ["P2O5", "K2O", "MgO"]) {
+    if (!compte[e]) continue;
+    if (!pe[e]) { manque.push(e); continue; }
+    lignes.push({e, u: val(e), pu: pe[e].prix, euros: val(e) * pe[e].prix});
+  }
+  const humusKg = nombre(reg.humus) !== null ? nombre(reg.humus) : PAILLE_HUMUS;
+  const humus = compte.humus ? humusKg * (nombre(etat.humus) || 0) / 100 : 0;
+  let azote = 0;
+  if (compte.N) { if (pe.N) azote = -PAILLE_N * pe.N.prix; else manque.push("N"); }
+  const total = lignes.reduce((s, l) => s + l.euros, 0) + humus + azote;
+  const t = nombre(reg.t) !== null ? nombre(reg.t) : c.t;
+  return {lignes, humus, humusKg, azote, total: Math.max(0, total), brut: total, manque, t, val};
+}
+
+// ---------------------------------------------------------------- petits morceaux d'affichage
+// la notation des sacs : N-P-K, puis MgO et SO₃ en plus
+function formule(t) {
+  const v = e => nombre(t[e]) || 0, f = x => f1.format(x);
+  if (!ELEMENTS.some(e => v(e) > 0)) return "";
+  let s = `${f(v("N"))}-${f(v("P2O5"))}-${f(v("K2O"))}`;
+  if (v("MgO")) s += ` +${f(v("MgO"))} MgO`;
+  if (v("SO3")) s += ` +${f(v("SO3"))} SO₃`;
+  return s;
+}
+function teneursOrg(o) {
+  return ELEMENTS.filter(e => nombre(o.t[e]) > 0).map(e => `${NOMS[e]} ${f1.format(nombre(o.t[e]))}`).join(" · ");
+}
+function ecartMineral(prix, valeur) {
+  if (prix === null || !(valeur > 0)) return null;
+  return (prix / valeur - 1) * 100;
+}
+function pastilleEcart(ec) {
+  if (ec === null) return "";
+  if (Math.abs(ec) < 3) return '<span class="pastille egal">au prix de référence</span>';
+  return ec > 0 ? `<span class="pastille cher">${f0.format(ec)} % plus cher</span>` : `<span class="pastille bon">${f0.format(-ec)} % moins cher</span>`;
+}
+const pastilleManque = m => `<span class="pastille att">sans prix pour ${m.map(e => NOMS[e]).join(", ")}</span>`;
+function pastilleGain(gain, u) {
+  const cls = gain > 0.05 ? "bon" : gain < -0.05 ? "cher" : "egal";
+  return `<span class="pastille ${cls}">${f1.format(Math.abs(gain))} € de ${gain >= 0 ? "gain" : "perte"} / ${u}</span>`;
+}
+// la place de l'unité écrite dans la case, pour qu'elle ne recouvre jamais le chiffre
+const placeU = u => u ? ` style="padding-right:calc(${u.length * 0.85}ch + 16px)"` : "";
+function champ({cle, titre, val, u, num = true, ph = "", large = false, attrs = ""}) {
+  const input = `<input id="c-${cle}" data-k="${cle}" ${num ? 'class="num" inputmode="decimal"' : ""} value="${echap(champTxt(val))}" placeholder="${echap(ph)}" ${attrs}${placeU(u)} autocomplete="off">`;
+  return `<label class="champ ${large ? "large" : ""}"><span>${titre}</span>${u ? `<span class="avec-u">${input}<i>${u}</i></span>` : input}</label>`;
+}
+function champsTeneurs(t, u, prefixe = "t") {
+  return ELEMENTS.map(e => `<label class="champ"><span class="el-titre" style="--c:${COULEURS[e]}">${NOMS[e]}</span><span class="avec-u"><input id="c-${prefixe}-${e}" class="num" inputmode="decimal" data-t="${e}" value="${echap(champTxt(t[e]))}" placeholder="0"${placeU(u)} autocomplete="off"><i>${u}</i></span></label>`).join("");
+}
+
+// ---------------------------------------------------------------- les vues
+let vue = VUES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "prix";
+let tri = lire(CLE + "-tri") === "nom" ? "nom" : "affaire";
+
+function dessiner() {
+  document.querySelectorAll("#onglets [data-vue]").forEach(b => b.setAttribute("aria-selected", b.dataset.vue === vue ? "true" : "false"));
+  $("#sous-titre").textContent = "Valeur réelle, pas valeur vénale";
+  const pe = prixUnite();
+  $("#vue").innerHTML = vue === "prix" ? vuePrix(pe) : vue === "mineraux" ? vueMineraux(pe) : vue === "organiques" ? vueOrganiques(pe) : vuePaille(pe);
+}
+
+function vuePrix(pe) {
+  const lignes = ELEMENTS.map(e => {
+    const d = pe[e];
+    return `<button class="unite ${d ? "" : "vide"}" data-ouvre="el:${e}" style="--c:${COULEURS[e]}">
+      <span class="sym">${NOMS[e]}</span>
+      <span class="src"><b>${NOMS_LONGS[e]}</b><span>${echap(d ? d.methode : "aucun engrais de référence avec un prix")}</span></span>
+      <span class="val">${d ? f2.format(d.prix) : "—"}<small>€ / unité</small></span>${CHEVRON}</button>`;
+  }).join("");
+  const h = nombre(etat.humus) || 0;
+  return `<div class="entete-vue"><div class="titre"><h1>Prix de l'unité</h1>
+      <p>Le prix d'un kg d'élément (1 unité), lu sur tes engrais de référence. Toute la valeur réelle de tes engrais se calcule dessus.</p></div></div>
+    <div class="unites">${lignes}
+      <button class="unite" data-ouvre="humus:" style="--c:var(--humus)"><span class="sym">MO</span>
+        <span class="src"><b>Humus stable</b><span>${h ? "compté pour les organiques" : "pas compté"}</span></span>
+        <span class="val">${f2.format(h)}<small>€ / 100 kg</small></span>${CHEVRON}</button></div>
+    <p class="note">Touche une ligne pour changer ses engrais de référence et leurs prix, en ajouter (leur moyenne, ou le moins cher). Le soufre se paie avec ce qui reste du sulfate d'ammoniaque une fois son azote payé, la magnésie avec ce qui reste de la kiésérite une fois son soufre payé.</p>`;
+}
+
+function vueMineraux(pe) {
+  const items = etat.mineraux.map(p => {
+    const r = valeurMineral(p, pe), prix = nombre(p.prix);
+    return {p, r, prix, ec: r.manque ? null : ecartMineral(prixTonne(p), r.valeur)};
+  });
+  if (tri === "nom") items.sort((a, b) => (a.p.nom || "").localeCompare(b.p.nom || "", "fr"));
+  else items.sort((a, b) => (a.ec ?? Infinity) - (b.ec ?? Infinity));
+  const lignes = items.map(({p, r, prix, ec}) => {
+    const f = formule(p.t);
+    const etat2 = !f ? '<span class="pastille att">teneurs à saisir</span>' : r.manque ? pastilleManque(r.manque) : prix === null ? '<span class="pastille att">prix à saisir</span>' : pastilleEcart(ec);
+    return `<button class="ligne" data-ouvre="min:${p.id}">
+      <span class="nom">${echap(p.nom || "Sans nom")}</span>
+      <span class="droite"><span class="gros">${prix !== null ? f0.format(prix) : "—"}<small>€/${uPrix(p)}</small></span></span>
+      <span class="bas">${f ? `<span class="formule">${echap(f)}</span>` : ""}${etat2}${r.valeur > 0 ? `<span>vaut <b class="chiffre">${f0.format(r.valeur * facteur(p))} €</b></span>` : ""}</span></button>`;
+  }).join("");
+  return `<div class="entete-vue"><div class="titre"><h1>Engrais minéraux</h1>
+      <p>Ce que valent vraiment leurs éléments, comparé à leur prix. Touche un engrais pour sa fiche.</p></div>
+    <div class="outils"><div class="seg" role="group" aria-label="Trier"><button data-tri="affaire" aria-pressed="${tri === "affaire"}">Meilleure affaire</button><button data-tri="nom" aria-pressed="${tri === "nom"}">Nom</button></div>
+      <button class="btn plein" data-ajoute="min">${IC_PLUS}Ajouter</button></div></div>
+    <div class="liste">${lignes || '<div class="vide-liste">Aucun engrais minéral. Ajoute le premier : un engrais courant se remplit en un geste.</div>'}</div>`;
+}
+
+function vueOrganiques(pe) {
+  const lignes = etat.organiques.map(o => {
+    const u = parU(o), r = valeurOrganique(o, pe, "printemps"), ra = valeurOrganique(o, pe, "automne");
+    const cout = (nombre(o.prix) || 0) + (nombre(o.epandage) || 0), avecPrix = nombre(o.prix) !== null || nombre(o.epandage) !== null;
+    const ty = TYPE[o.type], t = teneursOrg(o), dose = nombre(o.dose);
+    let bas;
+    if (!t) bas = '<span class="pastille att">teneurs à saisir</span>';
+    else if (r.manque) bas = pastilleManque(r.manque);
+    else bas = `${avecPrix ? pastilleGain(r.valeur - cout, u) : '<span class="pastille att">prix à saisir</span>'}<span>automne <b class="chiffre">${f1.format(ra.valeur)} €</b></span>${dose ? `<span>${f0.format(dose)} ${u}/ha : <b class="chiffre">${f0.format(r.valeur * dose)} €/ha</b></span>` : ""}`;
+    return `<button class="ligne" data-ouvre="org:${o.id}">
+      <span class="nom">${echap(o.nom || "Sans nom")}</span>
+      <span class="droite"><span class="gros">${t && !r.manque ? f1.format(r.valeur) : "—"}<small>€/${u} au print.</small></span></span>
+      <span class="bas">${ty ? `<span>${echap(ty.nom)}</span>` : ""}${bas}</span></button>`;
+  }).join("");
+  return `<div class="entete-vue"><div class="titre"><h1>Engrais organiques</h1>
+      <p>La valeur de leur part efficace la 1re année, selon la saison d'épandage, plus celle de leur humus, comparée au prix et à l'épandage.</p></div>
+    <div class="outils"><button class="btn plein" data-ajoute="org">${IC_PLUS}Ajouter</button></div></div>
+    <div class="liste">${lignes || '<div class="vide-liste">Aucun organique. Ajoute ton fumier, ton digestat ou ta vinasse.</div>'}</div>`;
+}
+
+function vuePaille() {
+  const compte = etat.paille.compte;
+  const puces = [["P2O5", "P₂O₅"], ["K2O", "K₂O"], ["MgO", "MgO"], ["humus", "Humus"], ["N", "Azote bloqué"]]
+    .map(([k, t]) => `<button class="puce" data-compte="${k}" aria-pressed="${!!compte[k]}">${compte[k] ? "✓ " : ""}${t}</button>`).join("");
+  const lignes = PAILLES.map(c => {
+    const r = paille(c);
+    const det = [...r.lignes.map(l => `${NOMS[l.e]} ${f1.format(l.euros)} €`), compte.humus ? `humus ${f1.format(r.humus)} €` : "", compte.N && !r.manque.includes("N") ? `azote −${f1.format(-r.azote)} €` : ""].filter(Boolean).join(" · ");
+    return `<button class="ligne" data-ouvre="paille:${c.cle}">
+      <span class="nom">${c.nom}</span>
+      <span class="droite"><span class="gros">${f0.format(r.total)}<small>€/t</small></span></span>
+      <span class="bas">${r.manque.length ? pastilleManque(r.manque) : ""}<span>${det}</span>${r.t ? `<span>${f1.format(r.t)} t/ha : <b class="chiffre">${f0.format(r.total * r.t)} €/ha</b></span>` : ""}</span></button>`;
+  }).join("");
+  return `<div class="entete-vue"><div class="titre"><h1>Paille exportée</h1>
+      <p>Ce que la paille rendrait si elle restait au champ : ses éléments, son humus, moins l'azote que son enfouissement bloque. Sous ce prix, la garder rapporte plus que la vendre.</p></div></div>
+    <div class="reglage-paille"><span class="doux">Compter :</span>${puces}</div>
+    <div class="liste">${lignes}</div>
+    <p class="note">${compte.P2O5 || compte.K2O ? "" : "P₂O₅ et K₂O décochés : ton sol en est riche, leur exportation ne coûte rien. "}Coche un élément seulement si ton sol en manque : sur un sol riche, l'exporter ne coûte rien (Tournière ne compte le MgO que sur sol faible). Touche une culture pour changer ses teneurs ou son tonnage.</p>`;
+}
+
+// ---------------------------------------------------------------- les fiches
+let fiche = null;       // {genre: "min" | "org" | "el" | "menu" | "methode", id, neuf}
+let dernierFocus = null;
+
+function objetFiche() {
+  if (!fiche) return null;
+  if (fiche.genre === "min") return etat.mineraux.find(p => p.id === fiche.id);
+  if (fiche.genre === "org") return etat.organiques.find(o => o.id === fiche.id);
+  if (fiche.genre === "el") return etat.refs[fiche.id];
+  if (fiche.genre === "paille") return etat.paille.cultures[fiche.id] = etat.paille.cultures[fiche.id] || {};
+  return null;
+}
+
+function ouvrir(genre, id, neuf = false) {
+  dernierFocus = document.activeElement;
+  fiche = {genre, id, neuf};
+  dessinerFiche();
+  $("#voile").hidden = false;
+  document.body.style.overflow = "hidden";
+  const premier = $("#feuille [data-premier]") || $("#feuille [data-ferme]");
+  if (premier) premier.focus({preventScroll: true});
+}
+
+function fermer() {
+  if (!fiche) return;
+  // une fiche neuve laissée vide ne garde rien
+  const o = objetFiche();
+  if (fiche.neuf && o && !ELEMENTS.some(e => nombre(o.t[e]) > 0) && nombre(o.prix) === null) {
+    const liste = fiche.genre === "min" ? etat.mineraux : etat.organiques;
+    liste.splice(liste.indexOf(o), 1);
+    sauver();
+  }
+  fiche = null;
+  $("#voile").hidden = true;
+  document.body.style.overflow = "";
+  dessiner();
+  if (dernierFocus && document.contains(dernierFocus)) dernierFocus.focus({preventScroll: true});
+}
+
+function teteFiche(titre) {
+  return `<div class="poignee"></div><div class="feuille-tete"><h2 id="feuille-titre">${echap(titre)}</h2>
+    <button class="btn plein" data-ferme>OK</button></div>`;
+}
+
+function dessinerFiche() {
+  const f = $("#feuille");
+  const o = objetFiche();
+  if (fiche.genre === "min") f.innerHTML = teteFiche(o.nom || "Nouvel engrais") + `<div class="feuille-corps">${ficheMineral(o)}</div>`;
+  else if (fiche.genre === "org") f.innerHTML = teteFiche(o.nom || "Nouvel organique") + `<div class="feuille-corps">${ficheOrganique(o)}</div>`;
+  else if (fiche.genre === "el") f.innerHTML = teteFiche(NOMS_LONGS[fiche.id] + " · " + NOMS[fiche.id]) + `<div class="feuille-corps">${ficheElement(fiche.id)}</div>`;
+  else if (fiche.genre === "humus") f.innerHTML = teteFiche("Humus stable") + `<div class="feuille-corps">${ficheHumus()}</div>`;
+  else if (fiche.genre === "paille") f.innerHTML = teteFiche("Paille de " + PAILLES.find(c => c.cle === fiche.id).nom.toLowerCase()) + `<div class="feuille-corps">${fichePaille(fiche.id)}</div>`;
+  else if (fiche.genre === "menu") f.innerHTML = teteFiche("Mes engrais") + `<div class="feuille-corps">${ficheMenu()}</div>`;
+  else f.innerHTML = teteFiche("Comment c'est calculé") + `<div class="feuille-corps">${ficheMethode()}</div>`;
+  majFiche();
+}
+
+// la richesse au volume d'un liquide payé au m³ : « 30 % × 1,3 = 390 u d'azote par m³ (la solution 39) »
+function texteVolume(p) {
+  const els = ELEMENTS.filter(e => nombre(p.t[e]) > 0);
+  if (!els.length) return "";
+  return `Au volume : ${els.map(e => `${f0.format(nombre(p.t[e]) * 10 * densite(p))} u ${NOMS[e]}`).join(", ")} par m³ (${els.map(e => `${f1.format(nombre(p.t[e]) * densite(p))} %`).join(", ")} en volume).`;
+}
+
+// ce qui bouge pendant la saisie : le bilan en tête de fiche et le titre (le reste garde la main)
+function majFiche() {
+  const o = objetFiche(), pe = prixUnite(), b = $("#feuille [data-bilan]");
+  if (fiche.genre === "min" || fiche.genre === "org") $("#feuille-titre").textContent = o.nom || (fiche.genre === "min" ? "Nouvel engrais" : "Nouvel organique");
+  if (!b) return;
+  document.querySelectorAll("#feuille [data-volume]").forEach(a => {
+    const x = a.dataset.volume ? etat.refs[fiche.id].produits.find(r => r.id === a.dataset.volume) : o;
+    if (x) a.textContent = texteVolume(x);
+  });
+  if (fiche.genre === "min") b.innerHTML = bilanMineral(o, pe);
+  else if (fiche.genre === "org") {
+    b.innerHTML = bilanOrganique(o, pe);
+    const h = humusOrganique(o), a = $("#feuille [data-humus-aide]");
+    a.textContent = h ? `${f0.format(h.kg)} kg d'humus stable par ${parU(o)}, comptés ${f1.format(h.euros)} € à ${f2.format(nombre(etat.humus) || 0)} € les 100 kg (réglage dans « Prix de l'unité »).`
+      : "Vide : la valeur de son type, en gris. Sans matière organique ni K1, son humus n'est pas compté.";
+  }
+  else if (fiche.genre === "el") b.innerHTML = bilanElement(fiche.id, pe);
+  else if (fiche.genre === "humus") b.innerHTML = bilanHumus();
+  else if (fiche.genre === "paille") b.innerHTML = bilanPaille(fiche.id);
+}
+
+function tableDetail(lignes, total, avecPart, humus) {
+  return `<table class="detail"><tbody>${lignes.map(l => `<tr><td><span class="el-titre" style="--c:${COULEURS[l.e]}">${NOMS[l.e]}</span>${avecPart && l.part !== 100 ? ` <span class="doux">(${f0.format(l.part)} %)</span>` : ""}</td>
+    <td>${f1.format(l.u)} u</td><td>× ${f2.format(l.pu)} €</td><td>${f1.format(l.euros)} €</td></tr>`).join("")}
+    ${humus ? `<tr><td><span class="el-titre" style="--c:var(--humus)">Humus</span></td><td>${f0.format(humus.kg)} kg</td><td>× ${f2.format((nombre(etat.humus) || 0) / 100)} €</td><td>${f1.format(humus.euros)} €</td></tr>` : ""}
+    <tr class="total"><td>Valeur réelle</td><td></td><td></td><td>${f1.format(total)} €</td></tr></tbody></table>`;
+}
+
+function bilanMineral(p, pe) {
+  const r = valeurMineral(p, pe), prix = nombre(p.prix);
+  if (!Object.keys(unitesMineral(p)).length) return '<p class="aide-champ">Saisis ses teneurs (ou choisis un engrais courant) pour voir sa valeur réelle.</p>';
+  if (r.manque) return `<div>${pastilleManque(r.manque)}</div><p class="aide-champ">Il manque le prix de l'unité de cet élément : donne un prix à son engrais de référence, dans « Prix de l'unité ».</p>`;
+  const u = Object.entries(r.unites), pt = prixTonne(p), ec = ecartMineral(pt, r.valeur), f = facteur(p), up = uPrix(p);
+  return `<div class="haut"><div><div class="etiq">Valeur réelle</div><div class="grand">${f0.format(r.valeur * f)}<small>€/${up}</small></div></div>
+      <div style="text-align:right"><div class="etiq">Tu le paies</div><div class="grand">${prix !== null ? f0.format(prix) : "—"}<small>€/${up}</small></div></div></div>
+    <div>${prix !== null ? pastilleEcart(ec) : '<span class="pastille att">prix à saisir</span>'}${u.length === 1 && prix !== null ? ` <span class="doux" style="font-size:.88rem">soit ${f2.format(pt / u[0][1])} €/u ${NOMS[u[0][0]]}</span>` : ""}</div>
+    ${tableDetail(r.lignes.map(l => ({...l, u: l.u * f, euros: l.euros * f})), r.valeur * f, false)}
+    ${auM3(p) ? `<p class="aide-champ" style="margin-top:-4px">Pour 1 m³, soit ${f2.format(f)} t.</p>` : ""}`;
+}
+
+// la charpente commune des fiches : une rubrique (titre, contenu, aide), un choix en boutons, la suppression en pied
+const IC_SUPPR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+const IC_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const rubrique = (titre, contenu, aide = "") => `<section class="groupe"><h3>${titre}</h3>${contenu}${aide ? `<p class="aide-champ">${aide}</p>` : ""}</section>`;
+const choix = (attr, options, valeur, titre) => `<div class="champ"><span>${titre}</span><div class="seg large" role="group" aria-label="${titre}">${options.map(([k, t]) => `<button data-${attr}="${k}" aria-pressed="${valeur === k}">${t}</button>`).join("")}</div></div>`;
+const piedSuppr = texte => `<div class="pied-fiche"><button class="btn danger bloc" data-supprime>${IC_SUPPR}${texte}</button></div>`;
+const PRIX_PAR = [["t", "€/t"], ["m3", "€/m³"]];
+
+function ficheMineral(p) {
+  const options = COURANTS.map((c, i) => `<option value="${i}">${echap(c.nom)} · ${echap(formule(c.t))}</option>`).join("");
+  return `<div class="bilan" data-bilan aria-live="polite"></div>
+    ${rubrique("Engrais", `<div class="champs">
+      <label class="champ large"><span>Remplir avec un engrais courant</span><select id="c-courant" data-courant ${fiche.neuf ? "data-premier" : ""}><option value="">Choisir…</option>${options}</select></label>
+      ${champ({cle: "nom", titre: "Nom", val: p.nom, num: false, large: true})}</div>`)}
+    ${rubrique("Prix livré", `<div class="champs">
+      ${champ({cle: "prix", titre: "Prix", val: p.prix, u: `€/${uPrix(p)}`})}
+      ${choix("prixpar", PRIX_PAR, auM3(p) ? "m3" : "t", "Payé par")}
+      ${auM3(p) ? champ({cle: "densite", titre: "Densité", val: p.densite, u: "t/m³", ph: champTxt(DENSITE_DEFAUT)}) : ""}
+      ${auM3(p) ? `<p class="aide-champ" data-volume style="align-self:end"></p>` : ""}</div>`, auM3(p) ? "" : "Un liquide payé au m³ : choisis €/m³, la densité ramène son prix à la tonne.")}
+    ${rubrique("Teneurs <small>% du poids</small>", `<div class="champs trois">${champsTeneurs(p.t, "%")}</div>`)}
+    ${piedSuppr("Supprimer cet engrais")}`;
+}
+
+function bilanOrganique(o, pe) {
+  const u = parU(o);
+  if (!ELEMENTS.some(e => nombre(o.t[e]) > 0)) return '<p class="aide-champ">Saisis ses teneurs (ton bulletin d\'analyse fait foi) pour voir sa valeur.</p>';
+  const rp = valeurOrganique(o, pe, "printemps"), ra = valeurOrganique(o, pe, "automne");
+  if (rp.manque) return `<div>${pastilleManque(rp.manque)}</div><p class="aide-champ">Il manque le prix de l'unité de cet élément : donne un prix à son engrais de référence, dans « Prix de l'unité ».</p>`;
+  const cout = (nombre(o.prix) || 0) + (nombre(o.epandage) || 0), avecPrix = nombre(o.prix) !== null || nombre(o.epandage) !== null, dose = nombre(o.dose);
+  const bloc = (titre, r) => `<div><div class="etiq">${titre}</div><div class="grand">${f1.format(r.valeur)}<small>€/${u}</small></div>
+    ${avecPrix ? pastilleGain(r.valeur - cout, u) : ""}${dose ? `<span class="doux" style="font-size:.86rem">${f0.format(r.valeur * dose)} €/ha à ${f1.format(dose)} ${u}</span>` : ""}</div>`;
+  return `<div class="deux">${bloc("Épandu au printemps", rp)}${bloc("Épandu à l'automne", ra)}</div>
+    <div class="doux" style="font-size:.88rem">Coût ${f1.format(cout)} €/${u} (produit + épandage)${dose ? `, soit ${f0.format(cout * dose)} €/ha` : ""}. ${rp.humus ? `Dont humus ${f1.format(rp.humus.euros)} €/${u}. ` : ""}Si tout comptait : ${f1.format(rp.plein)} €/${u}.</div>
+    ${tableDetail(rp.lignes, rp.valeur, true, rp.humus)}<p class="aide-champ" style="margin-top:-4px">Détail au printemps ; entre parenthèses, la part efficace.</p>`;
+}
+
+function ficheOrganique(o) {
+  const ty = TYPE[o.type] || {}, u = parU(o);
+  return `<div class="bilan" data-bilan aria-live="polite"></div>
+    ${rubrique("Produit", `<div class="champs">
+      <label class="champ large"><span>Type</span><select id="c-type" data-k="type" ${fiche.neuf ? "data-premier" : ""}><option value="">Autre type</option>${TYPES.map(t => `<option value="${t.type}" ${o.type === t.type ? "selected" : ""}>${echap(t.nom)}</option>`).join("")}</select></label>
+      ${champ({cle: "nom", titre: "Nom", val: o.nom, num: false})}
+      ${choix("unite", [["t", "Tonne"], ["m3", "m³"]], o.unite === "m3" ? "m3" : "t", "Compté par")}</div>`)}
+    ${rubrique("Prix et dose", `<div class="champs">
+      ${champ({cle: "prix", titre: "Prix du produit", val: o.prix, u: `€/${u}`, ph: "0"})}
+      ${champ({cle: "epandage", titre: "Épandage", val: o.epandage, u: `€/${u}`, ph: "0"})}
+      ${champ({cle: "dose", titre: "Dose prévue (facultatif)", val: o.dose, u: `${u}/ha`, large: true})}</div>`)}
+    ${rubrique(`Teneurs <small>kg par ${u}</small>`, `<div class="champs trois">${champsTeneurs(o.t, `kg/${u}`)}</div>`, "Ton bulletin d'analyse fait foi.")}
+    ${rubrique("Humus", `<div class="champs">
+      ${champ({cle: "mo", titre: "Matière organique", val: o.mo, u: `kg/${u}`, ph: ty.mo != null ? String(ty.mo) : ""})}
+      ${champ({cle: "k1", titre: "Part en humus (K1)", val: o.k1, u: "%", ph: ty.k1 != null ? String(ty.k1) : ""})}</div>
+      <p class="aide-champ" data-humus-aide></p>`)}
+    <details class="plus"><summary>Parts efficaces la 1re année ${ty.nom ? `(${echap(ty.nom.toLowerCase())})` : ""}</summary>
+      <div class="champs">
+        ${champ({cle: "eff_printemps", titre: "Azote, au printemps", val: o.eff_printemps, u: "%", ph: String(ty.printemps ?? 100)})}
+        ${champ({cle: "eff_automne", titre: "Azote, à l'automne", val: o.eff_automne, u: "%", ph: String(ty.automne ?? 100)})}
+        ${champ({cle: "eff_p2o5", titre: "P₂O₅", val: o.eff_p2o5, u: "%", ph: String(ty.p2o5 ?? 100)})}
+        ${champ({cle: "eff_k2o", titre: "K₂O", val: o.eff_k2o, u: "%", ph: String(ty.k2o ?? 100)})}</div>
+      <p class="aide-champ" style="margin-top:8px">Vide : la valeur du type, en gris (références COMIFER, ±30 %). MgO et SO₃ comptent en entier.</p></details>
+    ${piedSuppr("Supprimer cet organique")}`;
+}
+
+function bilanElement(e, pe) {
+  const d = pe[e];
+  if (!d) return '<div class="grand">—</div><p class="aide-champ">Donne un prix et ses teneurs à au moins un engrais de référence, ci-dessous.</p>';
+  const plusieurs = d.sources.length > 1;
+  return `<div><div class="etiq">Prix de l'unité${plusieurs ? ` · ${d.mini ? "le moins cher" : "moyenne"}` : ""}</div><div class="grand">${f2.format(d.prix)}<small>€ par kg de ${NOMS[e]}</small></div></div>
+    <table class="detail"><tbody>${d.sources.map(s => `<tr><td>${echap(s.nom || "Sans nom")}${plusieurs && d.mini && s.x === Math.min(...d.sources.map(o => o.x)) ? ' <span class="pastille ref">retenu</span>' : ""}<br><span class="doux">${s.calcul}</span></td><td>${f2.format(s.x)} €</td></tr>`).join("")}</tbody></table>
+    ${d.attente ? `<p class="aide-champ">${d.attente} engrais en attente : un de ses autres éléments n'a pas encore de prix.</p>` : ""}`;
+}
+
+// un engrais de référence : la même présentation qu'une fiche d'engrais, en carte
+function carteReference(r) {
+  const p = `r${r.id}`, champR = (k, titre, u, ph = "", num = true) =>
+    `<label class="champ"><span>${titre}</span>${u ? '<span class="avec-u">' : ""}<input id="c-${p}-${k}" data-k="${k}" ${num ? 'class="num" inputmode="decimal"' : ""} value="${echap(champTxt(r[k]))}" placeholder="${echap(ph)}"${placeU(u)} autocomplete="off">${u ? `<i>${u}</i></span>` : ""}</label>`;
+  return `<div class="refp" data-ref="${r.id}">
+      <div class="refp-tete"><b>${echap(r.nom || "Nouvel engrais")}</b><button class="btn danger petit" data-retire-ref="${r.id}" aria-label="Supprimer ${echap(r.nom || "cet engrais")} des références">${IC_SUPPR}Supprimer</button></div>
+      <div class="champs">
+        <div class="large">${champR("nom", "Nom", "", "", false)}</div>
+        ${champR("prix", "Prix", `€/${uPrix(r)}`, "—")}
+        ${choix("prixpar", PRIX_PAR, auM3(r) ? "m3" : "t", "Payé par")}
+        ${auM3(r) ? `${champR("densite", "Densité", "t/m³", champTxt(DENSITE_DEFAUT))}<p class="aide-champ" data-volume="${r.id}" style="align-self:end"></p>` : ""}</div>
+      <details class="plus"><summary>Teneurs <span class="formule">${echap(formule(r.t) || "à saisir")}</span></summary>
+        <div class="champs trois">${champsTeneurs(r.t, "%", p)}</div></details></div>`;
+}
+
+function ficheElement(e) {
+  const x = objetFiche(), courants = COURANTS.map((c, i) => [c, i]).filter(([c]) => nombre(c.t[e]) > 0);
+  return `<div class="bilan" data-bilan aria-live="polite"></div>
+    ${rubrique("Avec plusieurs engrais", choix("calcul", Object.entries(CALCULS), x.calcul, "Le prix de l'unité est"),
+      x.calcul === "mini" ? "Le moins cher : le prix que tu paierais en achetant au mieux." : "La moyenne : un prix de marché, qu'une promotion ne fait pas plonger.")}
+    ${rubrique(`Engrais de référence <small>${x.produits.length}</small>`, `<div class="refs">${x.produits.map(carteReference).join("") || '<p class="aide-champ">Aucun : ajoutes-en un ci-dessous.</p>'}</div>
+      <label class="champ"><span>${IC_PLUS.replace("<svg", '<svg style="width:16px;height:16px;vertical-align:-3px;margin-right:4px"')}Ajouter un engrais de référence</span><select id="c-ajout-ref" data-ajout-ref><option value="">Choisir…</option>
+        ${courants.map(([c, i]) => `<option value="${i}">${echap(c.nom)} · ${echap(formule(c.t))}</option>`).join("")}<option value="autre">Autre engrais (à saisir)</option></select></label>`,
+      "Le prix que tu paies, ou celui d'un tarif (coop, négoce, site internet).")}`;
+}
+
+function bilanPaille(cle) {
+  const c = PAILLES.find(x => x.cle === cle), r = paille(c), compte = etat.paille.compte;
+  const lignes = r.lignes.map(l => `<tr><td><span class="el-titre" style="--c:${COULEURS[l.e]}">${NOMS[l.e]}</span></td><td>${f1.format(l.u)} u</td><td>× ${f2.format(l.pu)} €</td><td>${f1.format(l.euros)} €</td></tr>`).join("");
+  return `<div class="haut"><div><div class="etiq">Prix plancher</div><div class="grand">${f0.format(r.total)}<small>€/t</small></div></div>
+      ${r.t ? `<div style="text-align:right"><div class="etiq">À ${f1.format(r.t)} t/ha</div><div class="grand">${f0.format(r.total * r.t)}<small>€/ha</small></div></div>` : ""}</div>
+    ${r.manque.length ? `<div>${pastilleManque(r.manque)}</div>` : ""}
+    <table class="detail"><tbody>${lignes}
+      ${compte.humus ? `<tr><td><span class="el-titre" style="--c:var(--humus)">Humus</span></td><td>${f0.format(r.humusKg)} kg</td><td>× ${f2.format((nombre(etat.humus) || 0) / 100)} €</td><td>${f1.format(r.humus)} €</td></tr>` : ""}
+      ${compte.N && r.azote ? `<tr><td><span class="el-titre" style="--c:var(--n)">Azote bloqué</span></td><td>${PAILLE_N} u</td><td>× ${f2.format(prixUnite().N.prix)} €</td><td>−${f1.format(-r.azote)} €</td></tr>` : ""}
+      <tr class="total"><td>Ce qu'elle rend enfouie</td><td></td><td></td><td>${f1.format(r.total)} €</td></tr></tbody></table>
+    <p class="aide-champ">Sous ${f0.format(r.total)} €/t (paille sur pied ou à l'andain, pressage à la charge de l'acheteur), la garder rapporte plus que la vendre.</p>`;
+}
+
+function fichePaille(cle) {
+  const c = PAILLES.find(x => x.cle === cle), reg = objetFiche();
+  const champP = (k, titre, u, ph) => champ({cle: k, titre, val: reg[k], u, ph: champTxt(ph)});
+  return `<div class="bilan" data-bilan aria-live="polite"></div>
+    ${rubrique("Tonnage", `<div class="champs">${champP("t", "Paille exportée", "t/ha", c.t ?? "")}</div>`, c.t ? "" : "Rarement pressée : donne un tonnage pour voir la valeur à l'hectare.")}
+    ${rubrique("Teneurs <small>kg par t de paille</small>", `<div class="champs trois">
+      ${champP("P2O5", "P₂O₅", "kg/t", c.P2O5)}${champP("K2O", "K₂O", "kg/t", c.K2O)}${champP("MgO", "MgO", "kg/t", c.MgO)}
+      ${champP("humus", "Humus stable", "kg/t", PAILLE_HUMUS)}</div>`, "Vide : la valeur de référence, en gris (COMIFER 2007 pour P, K, MgO ; humus : K1 0,15 de la matière sèche, Arvalis/Onidol). Ce qui compte se règle sur la page Paille, pour toutes les cultures.")}`;
+}
+
+function bilanHumus() {
+  const h = nombre(etat.humus) || 0;
+  return `<div><div class="etiq">Valeur de l'humus stable</div><div class="grand">${f2.format(h)}<small>€ pour 100 kg</small></div></div>
+    <p class="aide-champ">${h ? `Soit ${f0.format(h * 10)} € la tonne d'humus stable. Un fumier de bovin (200 kg de matière organique par t, K1 67 %) en fait 134 kg par t : ${f1.format(1.34 * h)} € par t.` : "À 0, l'humus n'est pas compté : seuls les éléments font la valeur des organiques."}</p>`;
+}
+
+function ficheHumus() {
+  return `<div class="bilan" data-bilan aria-live="polite"></div>
+    ${rubrique("Valeur", `<div class="champs">${champ({cle: "humus", titre: "Humus stable", val: etat.humus, u: "€/100 kg", ph: "0", large: true})}</div>`,
+      "Par défaut 5 € pour 100 kg (40 à 50 € la tonne, Chambre d'agriculture de la Vienne 2022, d'après le prix des produits organiques), comme dans Tournière. 0 : l'humus n'est pas compté.")}
+    ${rubrique("Comment il se compte", "", "Humus stable d'un organique = sa matière organique × la part qui fait de l'humus (coefficient isohumique K1, SIMEOS-AMG 2019 : fumier de bovin 67 %, compost 72 %, digestat 63 %, lisier de porc 51 %…). Chaque fiche organique reprend celle de son type, que tu peux remplacer par ton bulletin d'analyse.")}`;
+}
+
+function ficheMenu() {
+  return `<div class="menu">
+    <button class="btn" data-action="exporter">Enregistrer dans un fichier<small>&nbsp;· pour les garder ou les passer à quelqu'un</small></button>
+    <button class="btn" data-action="importer">Ouvrir un fichier<small>&nbsp;· enregistré par cette page</small></button>
+    <button class="btn" data-action="methode">Comment c'est calculé</button>
+    <button class="btn danger" data-action="exemples" id="b-exemples">Revenir aux exemples</button></div>
+    <p class="aide-champ">Tes engrais restent dans ce navigateur, sur cet appareil. Pour les retrouver ailleurs, enregistre-les dans un fichier.</p>`;
+}
+
+function ficheMethode() {
+  return `<div class="prose">
+    <h3>Le prix de l'unité</h3>
+    <p>Des engrais de référence pour chaque élément. Solution 30 pour l'azote, TSP 45 pour le phosphore, chlorure 60 pour la potasse : prix ÷ unités par tonne (une tonne à 30 % = 300 u). Le soufre se lit sur le sulfate d'ammoniaque une fois son azote payé, la magnésie sur la kiésérite une fois son soufre payé ; un reste négatif compte pour 0. Tous tes engrais se comparent ainsi toujours à la même base.</p>
+    <p>Plusieurs engrais de référence pour un élément : chacun donne son prix de l'unité, et l'élément prend leur <b>moyenne</b> (un prix de marché) ou <b>le moins cher</b> (le prix en achetant au mieux), au choix dans sa fiche.</p>
+    <p>Les teneurs sont en % du poids. Un liquide payé au m³ se ramène à la tonne : prix au m³ ÷ densité. La « solution 39 » est la solution 30 annoncée au volume : 30 % × densité 1,3 = 390 u d'azote par m³.</p>
+    <h3>La valeur réelle</h3>
+    <p><b>Minéral</b> : unités par tonne × prix de l'unité, élément par élément. Comparée à son prix : « plus cher » veut dire que tu paies ses unités plus cher qu'en engrais de référence.</p>
+    <p><b>Organique</b> : seule la part efficace la 1re année compte. L'azote selon la saison d'épandage, le P₂O₅ à 80 % et le K₂O à 100 % par défaut ; MgO et SO₃ en entier. S'y ajoute son humus stable : matière organique × K1, à la valeur réglée dans « Prix de l'unité ». Le gain compare cette valeur au prix plus l'épandage. « Si tout comptait » donne la valeur de tous ses éléments, plus que ce que la culture en tire l'année de l'apport.</p>
+    <h3>La paille exportée</h3>
+    <p>Ce qu'elle rendrait enfouie, par tonne : P₂O₅, K₂O et MgO (COMIFER 2007) au prix de l'unité, seulement si ton sol en manque ; son humus stable (130 kg par t) à la valeur de l'humus ; moins l'azote que son enfouissement bloque (5 u par t). Sous ce prix, la garder rapporte plus que la vendre. Le même calcul que le prix plancher de la paille de Tournière.</p>
+    <p class="doux">Parts d'azote efficace par type : références COMIFER (Keq), arrondies, ±30 %. Le bulletin d'analyse de ton produit fait foi pour les teneurs.</p></div>`;
+}
+
+// ---------------------------------------------------------------- message en bas
+let minuterie = null;
+function message(texte, action) {
+  const t = $("#toast");
+  t.innerHTML = `<span>${echap(texte)}</span>${action ? `<button id="toast-action">${echap(action.titre)}</button>` : ""}`;
+  t.hidden = false;
+  if (action) $("#toast-action").onclick = () => { action.faire(); t.hidden = true; };
+  clearTimeout(minuterie);
+  minuterie = setTimeout(() => { t.hidden = true; }, action ? 6000 : 3000);
+}
+
+// ---------------------------------------------------------------- actions
+function supprimer() {
+  const genre = fiche.genre, o = objetFiche(), liste = genre === "min" ? etat.mineraux : etat.organiques, i = liste.indexOf(o);
+  liste.splice(i, 1);
+  sauver();
+  fiche = null;
+  $("#voile").hidden = true;
+  document.body.style.overflow = "";
+  dessiner();
+  message(`« ${o.nom || "Sans nom"} » supprimé`, {titre: "Annuler", faire: () => { liste.splice(i, 0, o); sauver(); dessiner(); }});
+}
+
+function ajouter(genre) {
+  const o = genre === "min" ? {id: nouvelId(), nom: "", t: {}, prix: ""}
+    : {id: nouvelId(), nom: "", type: "", unite: "t", t: {}, prix: "", epandage: ""};
+  (genre === "min" ? etat.mineraux : etat.organiques).push(o);
+  sauver();
+  ouvrir(genre, o.id, true);
+}
+
+async function exporter() {
+  const nomFichier = `engrais-${new Date().toISOString().slice(0, 10)}.json`, texte = JSON.stringify(etat, null, 1);
+  // dans claude.ai : le téléchargement passe par la plateforme ; ouvert depuis le PC : un lien ordinaire
+  if (window.claude && window.claude.use) {
+    const dl = await window.claude.use("downloads").catch(() => null);
+    if (!dl) { message("L'enregistrement n'est pas disponible ici."); return; }
+    try { await dl.save({filename: nomFichier, data: texte}); message("Fichier enregistré"); }
+    catch (e) { if (!e || e.code !== "declined") message("L'enregistrement n'a pas pu se faire."); }
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([texte], {type: "application/json"}));
+  a.download = nomFichier;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+let armeExemples = null;
+function exemples(bouton) {
+  if (!armeExemples) {     // deux temps : la page ne peut pas ouvrir de fenêtre de confirmation
+    bouton.classList.add("arme");
+    bouton.textContent = "Oui, remplacer mes engrais par les exemples";
+    armeExemples = setTimeout(() => { armeExemples = null; if (document.contains(bouton)) { bouton.classList.remove("arme"); bouton.textContent = "Revenir aux exemples"; } }, 5000);
+    return;
+  }
+  clearTimeout(armeExemples);
+  armeExemples = null;
+  const avant = etat;
+  etat = complete(structuredClone(EXEMPLES));
+  sauver();
+  fermer();
+  message("Exemples remis", {titre: "Annuler", faire: () => { etat = avant; sauver(); dessiner(); }});
+}
+
+// ---------------------------------------------------------------- écoute
+document.addEventListener("click", ev => {
+  const t = ev.target.closest("button, [data-ouvre]");
+  if (!t) { if (ev.target === $("#voile")) fermer(); return; }
+  if (t.dataset.vue) { vue = t.dataset.vue; history.replaceState(null, "", "#" + vue); dessiner(); window.scrollTo(0, 0); return; }
+  if (t.dataset.ouvre) { const [g, id] = t.dataset.ouvre.split(":"); ouvrir(g, id); return; }
+  if (t.dataset.tri) { tri = t.dataset.tri; ecrire(CLE + "-tri", tri); dessiner(); return; }
+  if (t.dataset.compte) { const c = etat.paille.compte; c[t.dataset.compte] = !c[t.dataset.compte]; sauver(); dessiner(); return; }
+  if (t.dataset.ajoute) { ajouter(t.dataset.ajoute); return; }
+  if (t.hasAttribute("data-ferme")) { fermer(); return; }
+  if (t.hasAttribute("data-supprime")) { supprimer(); return; }
+  if (t.dataset.unite) { objetFiche().unite = t.dataset.unite; sauver(); dessinerFiche(); return; }
+  if (t.dataset.calcul) { objetFiche().calcul = t.dataset.calcul; sauver(); dessinerFiche(); return; }
+  if (t.dataset.prixpar) {
+    const carte = t.closest("[data-ref]"), cible = carte ? objetFiche().produits.find(r => r.id === carte.dataset.ref) : objetFiche();
+    cible.prixPar = t.dataset.prixpar;
+    sauver();
+    dessinerFiche();
+    const c = $(carte ? `#c-r${cible.id}-prix` : "#c-prix");
+    c.scrollIntoView({block: "center"});
+    c.focus({preventScroll: true});
+    return;
+  }
+  if (t.dataset.retireRef) {
+    const liste = objetFiche().produits, i = liste.findIndex(r => r.id === t.dataset.retireRef), r = liste[i], e = fiche.id;
+    liste.splice(i, 1);
+    sauver();
+    dessinerFiche();
+    message(`« ${r.nom || "Sans nom"} » retiré des références`, {titre: "Annuler", faire: () => { etat.refs[e].produits.splice(i, 0, r); sauver(); if (fiche && fiche.genre === "el") dessinerFiche(); else dessiner(); }});
+    return;
+  }
+  if (t.id === "b-menu") { ouvrir("menu"); return; }
+  const a = t.dataset.action;
+  if (a === "exporter") exporter();
+  else if (a === "importer") $("#b-import").click();
+  else if (a === "methode") { fiche = {genre: "methode"}; dessinerFiche(); }
+  else if (a === "exemples") exemples(t);
+});
+
+document.addEventListener("input", ev => {
+  const el = ev.target;
+  if (!fiche || !el.closest("#feuille")) return;
+  if (fiche.genre === "humus") {
+    etat.humus = el.value;
+  } else if (fiche.genre === "paille") {
+    objetFiche()[el.dataset.k] = el.value;
+  } else if (fiche.genre === "el") {
+    const x = objetFiche();
+    if (el.dataset.ajoutRef !== undefined) {
+      const c = COURANTS[+el.value], r = {id: nouvelId(), nom: c ? c.nom : "", t: c ? {...c.t} : {[fiche.id]: ""}, prix: "", ...(c && c.densite ? {densite: c.densite} : {})};
+      if (!el.value) return;
+      x.produits.push(r);
+      sauver();
+      dessinerFiche();
+      const champPrix = $(`#c-r${r.id}-${c ? "prix" : "nom"}`);
+      champPrix.scrollIntoView({block: "center"});
+      champPrix.focus({preventScroll: true});
+      if (!c) champPrix.closest(".refp").querySelector("details").open = true;
+      return;
+    }
+    const r = x.produits.find(y => y.id === el.closest("[data-ref]").dataset.ref);
+    if (el.dataset.t) {
+      const v = el.value.trim();
+      if (v === "") delete r.t[el.dataset.t]; else r.t[el.dataset.t] = v;
+      el.closest(".refp").querySelector("summary .formule").textContent = formule(r.t) || "à saisir";
+    } else {
+      r[el.dataset.k] = el.value;
+      if (el.dataset.k === "nom") el.closest(".refp").querySelector(".refp-tete b").textContent = r.nom || "Nouvel engrais";
+    }
+  } else if (el.dataset.courant !== undefined) {
+    const c = COURANTS[+el.value], o = objetFiche();
+    if (!c) return;
+    o.nom = c.nom;
+    o.t = {...c.t};
+    if (c.densite) o.densite = c.densite; else { delete o.densite; delete o.prixPar; }
+    sauver();
+    dessinerFiche();
+    $("#c-prix").focus();
+    return;
+  } else {
+    const o = objetFiche();
+    if (el.dataset.t) { const v = el.value.trim(); if (v === "") delete o.t[el.dataset.t]; else o.t[el.dataset.t] = v; }
+    else if (el.dataset.k === "type") {
+      o.type = el.value;
+      const ty = TYPE[o.type];
+      if (ty && ty.unite && !ELEMENTS.some(e => nombre(o.t[e]) > 0)) o.unite = ty.unite;     // un lisier se compte au m³
+      if (ty && !o.nom) o.nom = ty.nom;
+      sauver();
+      dessinerFiche();
+      return;
+    } else if (el.dataset.k) o[el.dataset.k] = el.value;
+  }
+  sauver();
+  majFiche();
+});
+
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && fiche) { ev.preventDefault(); fermer(); }
+  if (ev.key === "Enter" && fiche && ev.target.matches("#feuille input:not([type=checkbox])")) {
+    // Entrée passe à la case suivante, puis ferme la fiche
+    const cases = [...document.querySelectorAll("#feuille input:not([type=checkbox]), #feuille select")];
+    const suivante = cases[cases.indexOf(ev.target) + 1];
+    ev.preventDefault();
+    if (suivante) suivante.focus(); else fermer();
+  }
+});
+
+$("#b-import").onchange = async ev => {
+  const f = ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!Array.isArray(d.mineraux) || !Array.isArray(d.organiques)) throw new Error();
+    const avant = etat;
+    etat = complete(d);
+    sauver();
+    fermer();
+    message(`${etat.mineraux.length + etat.organiques.length} engrais ouverts`, {titre: "Annuler", faire: () => { etat = avant; sauver(); dessiner(); }});
+  } catch (e) {
+    message("Ce fichier n'a pas été enregistré par cette page : rien n'a changé.");
+  }
+};
+
+window.addEventListener("hashchange", () => {
+  const h = location.hash.slice(1);
+  if (VUES.includes(h) && h !== vue) { vue = h; dessiner(); }
+});
+
+dessiner();
+
+// l'appli installée (GitHub Pages) : son service worker garde la page pour l'ouvrir sans réseau ; jamais dans claude.ai,
+// où la page tourne dans un cadre
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost") && window.self === window.top) {
+  navigator.serviceWorker.register("sw.js").catch(() => { /* pas d'appli hors ligne : la page marche quand même */ });
+}
+</script>
+</body>
+</html>
