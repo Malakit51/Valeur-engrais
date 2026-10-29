@@ -207,6 +207,27 @@ main { max-width: 980px; margin: 0 auto; padding-block: 18px 48px;
 .installer { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-bottom: 16px; padding: 12px 14px;
   border-radius: var(--rayon); background: var(--accent-f); border: 1.5px solid var(--accent); color: var(--encre); font-size: .92rem; }
 .installer svg { width: 26px; height: 26px; color: var(--accent); }
+/* onglet Marché : une carte par cours, sa courbe de 3 ans, la bande du milieu (du quart bas au quart haut) */
+.cours { background: var(--surface); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 14px; display: grid; gap: 8px; }
+.cours-tete { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; }
+.cours-tete h2 { margin: 0; font: 700 1.15rem/1.2 var(--f-titre); text-wrap: balance; }
+.cours-tete .src { display: block; color: var(--doux); font-size: .8rem; margin-top: 2px; }
+.cours-val { text-align: right; white-space: nowrap; }
+.cours-val b { font: 600 1.45rem/1.1 var(--f-chiffre); font-variant-numeric: tabular-nums; }
+.cours-val .u { display: inline; color: var(--doux); font-size: .8rem; margin-left: 3px; }
+.cours-val span:not(.u) { display: block; color: var(--doux); font-size: .8rem; margin-top: 2px; }
+.cours-bas { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .86rem; color: var(--doux); }
+.courbe { position: relative; touch-action: pan-y; }
+.courbe svg { display: block; width: 100%; height: auto; }
+.courbe .axe { fill: var(--doux); font: 11px var(--f-texte); }
+.courbe .grille { stroke: var(--trait); stroke-width: 1; }
+.courbe .bande { fill: var(--accent-f); }
+.courbe .ligne { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.courbe .point { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
+.courbe .viseur { stroke: var(--doux); stroke-width: 1; stroke-dasharray: 3 3; }
+.bulle { position: absolute; top: 0; pointer-events: none; background: var(--encre); color: var(--surface); border-radius: 8px; padding: 4px 8px; font-size: .8rem; white-space: nowrap; transform: translateX(-50%); }
+.bulle b { font-family: var(--f-chiffre); }
+.grille-cours { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .reglage-paille { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .puce { min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--trait-fort); background: var(--surface); color: var(--encre); font-weight: 700; font-size: .9rem; }
 .puce[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-encre); }
@@ -245,6 +266,7 @@ details.plus[open] summary { margin-bottom: 10px; }
       <button role="tab" data-vue="mineraux" id="o-mineraux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12l2 5v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M4 8h16M9 13h6"/></svg>Minéraux</button>
       <button role="tab" data-vue="organiques" id="o-organiques"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-4.5-2-7-5.5-7-10 4 0 7 2 7 6 0-5 3-8 7-8 0 6-2.5 10-7 12z"/></svg>Organiques</button>
       <button role="tab" data-vue="paille" id="o-paille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8M12 8c0-3 2-5 4-6 0 3-1 5-4 6zM12 8c0-3-2-5-4-6 0 3 1 5 4 6zM12 13c2-2 4-2 6-2-1 2-3 3-6 2zM12 13c-2-2-4-2-6-2 1 2 3 3 6 2zM12 18c2-2 4-2 6-2-1 2-3 3-6 2zM12 18c-2-2-4-2-6-2 1 2 3 3 6 2z"/></svg>Paille</button>
+      <button role="tab" data-vue="marche" id="o-marche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8 3 3"/><path d="M3 21h18"/></svg>Marché</button>
     </nav>
     <button class="icone" id="b-menu" aria-label="Menu : enregistrer, ouvrir, méthode"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
@@ -261,9 +283,9 @@ const NOMS = {N: "N", P2O5: "P₂O₅", K2O: "K₂O", MgO: "MgO", SO3: "SO₃"};
 const NOMS_LONGS = {N: "Azote", P2O5: "Phosphore", K2O: "Potasse", MgO: "Magnésie", SO3: "Soufre"};
 const COULEURS = {N: "var(--n)", P2O5: "var(--p)", K2O: "var(--k)", MgO: "var(--mg)", SO3: "var(--s)"};
 const CLE = "tourniere-valeur-engrais-v1";
-const VUES = ["prix", "mineraux", "organiques", "paille"];
+const VUES = ["prix", "mineraux", "organiques", "paille", "marche"];
 // la version de l'appli installable (manifeste valeur-engrais-3) : montrée dans le menu ⋯
-const VERSION_APPLI = "4 · 29/10/2026";
+const VERSION_APPLI = "5 · 29/10/2026";
 
 // Types d'organiques (module Engrais de Tournière, d'après le COMIFER) : part d'azote efficace au printemps et à
 // l'automne ; P₂O₅ 80 %, K₂O 100 % pour tous
@@ -607,7 +629,8 @@ function dessiner() {
   document.querySelectorAll("#onglets [data-vue]").forEach(b => b.setAttribute("aria-selected", b.dataset.vue === vue ? "true" : "false"));
   $("#sous-titre").textContent = "Valeur réelle, pas valeur vénale";
   const pe = prixUnite();
-  $("#vue").innerHTML = bandeauInstall() + (vue === "prix" ? vuePrix(pe) : vue === "mineraux" ? vueMineraux(pe) : vue === "organiques" ? vueOrganiques(pe) : vuePaille(pe));
+  $("#vue").innerHTML = bandeauInstall() + (vue === "prix" ? vuePrix(pe) : vue === "mineraux" ? vueMineraux(pe) : vue === "organiques" ? vueOrganiques(pe) : vue === "paille" ? vuePaille(pe) : vueMarche());
+  if (vue === "marche") brancherCourbes();
 }
 
 function vuePrix(pe) {
@@ -668,6 +691,102 @@ function vueOrganiques(pe) {
       <p>La valeur de leur part efficace la 1re année, selon la saison d'épandage, plus celle de leur humus, comparée au prix et à l'épandage.</p></div>
     <div class="outils"><button class="btn plein" data-ajoute="org">${IC_PLUS}Ajouter</button></div></div>
     <div class="liste">${lignes || '<div class="vide-liste">Aucun organique. Ajoute ton fumier, ton digestat ou ta vinasse.</div>'}</div>`;
+}
+
+// ---------------------------------------------------------------- onglet Marché
+// donnees/cours.json, écrit chaque lundi par le relevé (GitHub Actions, outils/releve.py) : sources ouvertes, mensuelles
+let marche = {etat: "rien"};
+const ORDRE_COURS = ["uree", "ipampa_n", "tsp", "kcl", "dap", "gaz"];
+const ETATS_COURS = {bas: ["bon", "quart le plus bas sur 3 ans"], moyen: ["egal", "dans la moyenne sur 3 ans"], haut: ["cher", "quart le plus haut sur 3 ans"]};
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const moisTxt = m => `${MOIS[+m.slice(5) - 1]} ${m.slice(0, 4)}`;
+
+async function chargerMarche() {
+  marche = {etat: "charge"};
+  try {
+    const r = await fetch("donnees/cours.json", {cache: "no-cache"});
+    if (!r.ok) throw new Error(r.status);
+    marche = {etat: "ok", d: await r.json()};
+  } catch (e) {
+    marche = {etat: "erreur"};
+  }
+  if (vue === "marche") dessiner();
+}
+
+function couleurCours(s) { return s.cle === "gaz" ? "var(--doux)" : COULEURS[s.element] || "var(--accent)"; }
+
+// la courbe des 3 dernières années : bande du milieu (quart bas → quart haut), grille légère, point final marqué
+function courbe(s) {
+  const pts = s.points.slice(-(marche.d.fenetre_mois || 36)), g = s.signal;
+  const L = 340, H = 130, g0 = 34, d0 = 8, h0 = 8, b0 = 20;
+  const vals = pts.map(p => p[1]), mn = Math.min(...vals), mx = Math.max(...vals), marge = (mx - mn) * 0.08 || 1;
+  const y0 = mn - marge, y1 = mx + marge;
+  const X = i => g0 + i * (L - g0 - d0) / Math.max(1, pts.length - 1), Y = v => h0 + (y1 - v) * (H - h0 - b0) / (y1 - y0);
+  const ticks = [mn, (mn + mx) / 2, mx];
+  const annees = pts.map((p, i) => [p[0], i]).filter(([m]) => m.endsWith("-01"));
+  const chemin = pts.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+  const dernier = pts.length - 1;
+  return `<div class="courbe" data-courbe="${s.cle}" style="--c:${couleurCours(s)}">
+    <svg viewBox="0 0 ${L} ${H}" role="img" aria-label="${echap(s.nom)} sur 3 ans, de ${f0.format(mn)} à ${f0.format(mx)} ${echap(s.unite)}">
+      ${g ? `<rect class="bande" x="${g0}" y="${Y(g.q75).toFixed(1)}" width="${L - g0 - d0}" height="${Math.max(1, Y(g.q25) - Y(g.q75)).toFixed(1)}"/>` : ""}
+      ${ticks.map(t => `<line class="grille" x1="${g0}" x2="${L - d0}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/><text class="axe" x="${g0 - 4}" y="${(Y(t) + 4).toFixed(1)}" text-anchor="end">${f0.format(t)}</text>`).join("")}
+      ${annees.map(([m, i]) => `<text class="axe" x="${X(i).toFixed(1)}" y="${H - 4}" text-anchor="middle">${m.slice(0, 4)}</text>`).join("")}
+      <path class="ligne" d="${chemin}"/>
+      <line class="viseur" data-viseur x1="0" x2="0" y1="${h0}" y2="${H - b0}" visibility="hidden"/>
+      <circle class="point" data-curseur r="5" cx="${X(dernier).toFixed(1)}" cy="${Y(pts[dernier][1]).toFixed(1)}"/>
+    </svg><div class="bulle" data-bulle hidden></div></div>`;
+}
+
+function carteCours(s) {
+  const g = s.signal, dernier = s.points[s.points.length - 1];
+  if (!dernier) return "";
+  const parU = s.teneur && s.unite === "€/t" ? `soit ${f2.format(dernier[1] / (s.teneur * 10))} €/u ${NOMS[s.element]}` : "";
+  const [cls, txt] = g ? ETATS_COURS[g.etat] : ["egal", ""];
+  return `<article class="cours">
+    <div class="cours-tete"><div><h2>${echap(s.nom)}</h2><span class="src">${echap(s.lieu)} · ${echap(s.source)}</span></div>
+      <div class="cours-val"><b>${f0.format(dernier[1])}</b><span class="u">${echap(s.unite.replace(" (100 en 2020)", ""))}</span><span>${moisTxt(dernier[0])}</span>${parU ? `<span>${parU}</span>` : ""}</div></div>
+    ${courbe(s)}
+    <div class="cours-bas">${g ? `<span class="pastille ${cls}">${txt}</span><span>${g.var1 >= 0 ? "+" : "−"}${f1.format(Math.abs(g.var1))} % sur un mois</span><span>${g.var12 >= 0 ? "+" : "−"}${f1.format(Math.abs(g.var12))} % sur un an</span>` : ""}</div>
+  </article>`;
+}
+
+function vueMarche() {
+  if (marche.etat === "rien") chargerMarche();
+  const tete = `<div class="entete-vue"><div class="titre"><h1>Marché</h1>
+      <p>Les cours mondiaux et les prix payés en France, mois par mois, sur 3 ans. La bande verte va du quart le plus bas au quart le plus haut : sous elle, c'est le moment de regarder.</p></div></div>`;
+  if (marche.etat === "charge" || marche.etat === "rien") return tete + '<div class="vide-liste">Chargement des cours…</div>';
+  if (marche.etat === "erreur") return tete + `<div class="vide-liste">Les cours se lisent dans l'appli installée (malakit51.github.io/Valeur-engrais), avec du réseau la première fois.<br><br><button class="btn" data-action="recharger-marche">Réessayer</button></div>`;
+  const d = marche.d, par = Object.fromEntries(d.series.map(s => [s.cle, s]));
+  const cartes = ORDRE_COURS.filter(k => par[k]).map(k => carteCours(par[k])).join("");
+  return tete + `<div class="grille-cours">${cartes}</div>
+    <p class="note">Relevé le ${new Date(d.maj).toLocaleDateString("fr-FR")}, chaque lundi. Banque mondiale (Pink Sheet, CC BY 4.0), en euros au taux mensuel de la BCE ; INSEE, indice IPAMPA (Licence Ouverte). Ce sont des cours de gros mondiaux et un indice national : ils donnent la tendance et le bon moment, ton prix livré suit avec un décalage. Une alerte arrive par GitHub quand un cours passe dans le quart le plus bas ou baisse de 8 % en un mois.</p>`;
+}
+
+// le doigt (ou la souris) sur une courbe : le mois et le cours
+function brancherCourbes() {
+  if (marche.etat !== "ok") return;
+  const par = Object.fromEntries(marche.d.series.map(s => [s.cle, s]));
+  document.querySelectorAll("[data-courbe]").forEach(box => {
+    const s = par[box.dataset.courbe], pts = s.points.slice(-(marche.d.fenetre_mois || 36));
+    const svg = box.querySelector("svg"), viseur = box.querySelector("[data-viseur]"), point = box.querySelector("[data-curseur]"), bulle = box.querySelector("[data-bulle]");
+    const L = 340, g0 = 34, d0 = 8, fin = {cx: point.getAttribute("cx"), cy: point.getAttribute("cy")};
+    const ys = [...svg.querySelector(".ligne").getAttribute("d").matchAll(/[ML]([\d.]+),([\d.]+)/g)].map(m => [+m[1], +m[2]]);
+    const montrer = ev => {
+      const r = svg.getBoundingClientRect(), x = (ev.clientX - r.left) * L / r.width;
+      const i = Math.max(0, Math.min(pts.length - 1, Math.round((x - g0) / ((L - g0 - d0) / Math.max(1, pts.length - 1)))));
+      const [cx, cy] = ys[i];
+      viseur.setAttribute("x1", cx); viseur.setAttribute("x2", cx); viseur.setAttribute("visibility", "visible");
+      point.setAttribute("cx", cx); point.setAttribute("cy", cy);
+      bulle.hidden = false;
+      bulle.innerHTML = `${moisTxt(pts[i][0])} · <b>${f0.format(pts[i][1])}</b> ${echap(s.unite)}`;
+      bulle.style.left = `${Math.min(Math.max(cx * r.width / L, 60), r.width - 60)}px`;
+    };
+    const cacher = () => { viseur.setAttribute("visibility", "hidden"); point.setAttribute("cx", fin.cx); point.setAttribute("cy", fin.cy); bulle.hidden = true; };
+    box.addEventListener("pointermove", montrer);
+    box.addEventListener("pointerdown", montrer);
+    box.addEventListener("pointerleave", cacher);
+    box.addEventListener("pointerup", ev => { if (ev.pointerType !== "mouse") setTimeout(cacher, 1500); });
+  });
 }
 
 function vuePaille() {
@@ -1049,6 +1168,7 @@ document.addEventListener("click", ev => {
   if (t.id === "b-menu") { ouvrir("menu"); return; }
   const a = t.dataset.action;
   if (a === "installer") installer();
+  else if (a === "recharger-marche") { chargerMarche(); dessiner(); }
   else if (a === "exporter") exporter();
   else if (a === "importer") $("#b-import").click();
   else if (a === "methode") { fiche = {genre: "methode"}; dessinerFiche(); }
